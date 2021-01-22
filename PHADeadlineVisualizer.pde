@@ -1,128 +1,45 @@
 import http.requests.*;
+import java.util.Date;
+import java.util.Calendar;
+import java.text.SimpleDateFormat;
 
-boolean sendNewRequest = true;
+final boolean SEND_NEW_REQUESTS = false;
 
-JSONObject sortedMilestones;
-JSONArray milestones;
-JSONObject projects;
-String sortedMilestonesJSONFile = "data/sorted_milestones.json";
-String milestonesJSONFile = "data/milestones.json";
-String projectsJSONFile = "data/projects.json";
-
-String url = "https://phaconsulting.teamwork.com/";
-String username = "";
-String password = "password";
-
-String idKey = "project-id";
-String pmKey = "project-manager";
-
-String[] pmWords = {"PM", "PROJECT MANAGER"};
-// project manager: xxx
-// pm
-
-// AA (Andrew Allen)
-// TK
-// Randy
-// Tim
+JSONLoader jsons;
 
 void setup() {
-  size(100, 100);
+  size(500, 500);
   //frame.setVisible(false);
+  background(255);
+  fill(255, 0, 0);
   
-  username = loadStrings("API_Token.txt")[0];
-    
-  if(sendNewRequest) {
-    downloadMilestonesJSON();
-    downloadProjectsJSON();
-    setProjectManagers();
-  } else {
-    milestones = loadJSONArray(milestonesJSONFile);
-    projects = loadJSONObject(projectsJSONFile);
-  }
-  
-  sortByProjectManager();
-}
+  String username = loadStrings("API_Token.txt")[0];
+  jsons = new JSONLoader(username);
 
-// Get all upcoming milestones
-void downloadMilestonesJSON() {    
-  GetRequest get = new GetRequest(url + "milestones.json?find=upcoming");
-  get.addUser(username, password);
-  get.send();
-  
-  JSONObject milestonesJSON = parseJSONObject(get.getContent());
-  milestones = milestonesJSON.getJSONArray("milestones");
-  saveJSONArray(milestones, milestonesJSONFile);
-}
+  int yOffset = 5;
 
-// Get the project associated with each milestone
-void downloadProjectsJSON() {
-  projects = new JSONObject();
-  for(int i = 0; i < milestones.size(); ++i) {
-    JSONObject milestone = milestones.getJSONObject(i);
-    String id = milestone.getString(idKey);
-    
-    if(projects.getJSONObject(id) != null) // Skip if we've downloaded this project ID before
-      continue;
-    
-    GetRequest projectGet = new GetRequest(url + "projects/" + id + ".json");
-    projectGet.addUser(username, password);
-    //println(url + "projects/" + id + ".json");
-    projectGet.send();
-    
-    JSONObject project = parseJSONObject(projectGet.getContent());
-    projects.setJSONObject(id, project);
-  }
-  saveJSONObject(projects, projectsJSONFile); 
-}
-
-void setProjectManagers() {
-  for(int i = 0; i < milestones.size(); ++i) {
-    JSONObject milestone = milestones.getJSONObject(i);
-    milestone.setString(pmKey, getProjectManager(milestone));
-  }
-  saveJSONArray(milestones, milestonesJSONFile);
-}
-
-void sortByProjectManager() {
-  sortedMilestones = new JSONObject();
-  for(int i = 0; i < milestones.size(); ++i) {
-    JSONObject milestone = milestones.getJSONObject(i);
-    String pm = milestone.getString(pmKey);
-    
-    JSONArray pmMilestones = sortedMilestones.getJSONArray(pm);
-    if(pmMilestones == null) {
-      pmMilestones = new JSONArray();
-      sortedMilestones.setJSONArray(pm, pmMilestones);
+  Calendar cal = Calendar.getInstance();
+  try {
+    SimpleDateFormat parser = new SimpleDateFormat("yyyyMMdd");
+    JSONArray pms = jsons.getPMs();
+    for(int i = 0; i < pms.size(); ++i) {
+      String pm = pms.getString(i); 
+      JSONArray milestones = jsons.getMilestones(pm);
+      for(int j = 0; j < milestones.size(); ++j) {
+        JSONObject milestone = milestones.getJSONObject(i);
+        
+        String deadline = milestone.getString("deadline");
+        Date deadlineDate = parser.parse(deadline);
+        cal.setTime(deadlineDate);
+        
+        int x = cal.get(Calendar.DAY_OF_YEAR) * 5;
+        circle(x, yOffset, 5);
+        
+        yOffset += 5;
+        //println(cal.get(Calendar.DAY_OF_YEAR));
+      }
     }
-    pmMilestones.append(milestone);
+  } catch (java.text.ParseException e) {
+    e.printStackTrace(); 
   }
-  saveJSONObject(sortedMilestones, sortedMilestonesJSONFile);
-}
-
-String getProjectManager(JSONObject milestone) {
-  String pm = milestone.getString(pmKey);
-  if(pm != null)
-    return pm;
-  
-  String id = milestone.getString(idKey);
-  JSONObject project = projects.getJSONObject(id);
-  JSONObject projectInfo = project.getJSONObject("project");
-  String desc = projectInfo.getString("description");
-  
-  String[] lines = desc.toUpperCase().split("\n");
-  for(int j = 0; j < lines.length; ++j) {
-    if(lines[j].length() < 30 && (lines[j].contains(pmWords[0]) || lines[j].contains(pmWords[1]))) {
-      pm = lines[j];
-      for(int k = 0; k < pmWords.length; ++k)
-        pm = pm.replace(pmWords[k], "");
-      pm = pm.replaceAll("[^\\w\\s]", "");
-      pm = pm.trim();
-      return pm;
-    }
-  }
-  return "UNKNOWN";
-}
-
-void draw() {
-  background(0); 
 }
