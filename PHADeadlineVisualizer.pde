@@ -26,7 +26,7 @@ void setup() {
       String pm = pms.getString(i); 
       JSONArray milestones = jsons.getMilestones(pm);
       for(int j = 0; j < milestones.size(); ++j) {
-        JSONObject milestone = milestones.getJSONObject(i);
+        JSONObject milestone = milestones.getJSONObject(j);
         
         String deadline = milestone.getString("deadline");
         Date deadlineDate = parser.parse(deadline);
