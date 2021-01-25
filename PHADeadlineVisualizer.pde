@@ -33,6 +33,13 @@ void draw() {
   int increase = 15;
   int circleSize = 10;
 
+  textAlign(CENTER, TOP);
+  for(int i = 1; i < 365; ++i) {
+    text(i, (i + 1) * increase, 0);
+  }
+  
+  yOffset += 10;
+
   Calendar cal = Calendar.getInstance();
   Calendar startCal = Calendar.getInstance();
   Calendar endCal = Calendar.getInstance();
