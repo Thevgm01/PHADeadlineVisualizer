@@ -20,9 +20,10 @@ class JSONLoader {
 
   
   public JSONLoader() {
-    projectManagerMilestones = loadJSONObject(sortedMilestonesJSONFile);
     milestones = loadJSONObject(milestonesJSONFile);
     projects = loadJSONObject(projectsJSONFile);
+    //projectManagerMilestones = loadJSONObject(sortedMilestonesJSONFile);
+    createSortedJSON();
   }
   
   public JSONLoader(String username) {
@@ -40,6 +41,7 @@ class JSONLoader {
     milestones.setJSONArray("ids", milestoneIDs);
     
     GetRequest get = new GetRequest(url + "milestones.json?find=upcoming");
+    //GetRequest get = new GetRequest(url + "milestones.json");
     get.addUser(username, password);
     get.send();
     
@@ -126,9 +128,16 @@ class JSONLoader {
     JSONArray milestoneIDs = milestones.getJSONArray("ids");
     for(int i = 0; i < milestoneIDs.size(); ++i) { // For each milestone
       JSONObject milestone = milestones.getJSONObject(milestoneIDs.getString(i));
+      
+      String nameLower = milestone.getString("title").toLowerCase();
+      if(nameLower.contains("sub") || nameLower.contains("rfi")) continue;
+      //if(!nameLower.contains("ifc") && !nameLower.contains("asi")) continue;
+      
       String pmName = milestone.getString("project-manager"); // Get the project manager
       //String milestoneID = milestone.getString("id");
       String projectID = milestone.getString("project-id");
+      
+      JSONObject project = projects.getJSONObject(projectID);
       
       JSONObject pm = projectManagerMilestones.getJSONObject(pmName);
       if(pm == null) {
@@ -152,6 +161,19 @@ class JSONLoader {
       }
             
       pmProjectMilestones.append(milestone);
+    }
+    
+    JSONArray pms = projectManagerMilestones.getJSONArray("project-managers");
+    for(int i = 0; i < pms.size(); ++i) {
+      JSONArray projectIDsA = projectManagerMilestones.getJSONObject(pms.getString(i)).getJSONArray("project-ids");
+      for(int j = i + 1; j < pms.size(); ++j) {
+        JSONArray projectIDsB = projectManagerMilestones.getJSONObject(pms.getString(j)).getJSONArray("project-ids");
+        if(projectIDsA.size() < projectIDsB.size()) {
+          String temp = pms.getString(i);
+          pms.setString(i, pms.getString(j));
+          pms.setString(j, temp);
+        }
+      }
     }
     
     saveJSONObject(projectManagerMilestones, sortedMilestonesJSONFile);
