@@ -15,7 +15,7 @@ float longestProjectNameWidth = 0;
 
 String[] monthNames = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 SimpleDateFormat creationParser, deadlineParser;
-Calendar curCal, creationCal, deadlineCal;
+Calendar curCal, creationCal, deadlineCal, lastDeadlineCal;
 
 boolean mouseInput = true;
 
@@ -36,6 +36,7 @@ void setup() {
   curCal = Calendar.getInstance();
   creationCal = Calendar.getInstance();
   deadlineCal = Calendar.getInstance();
+  lastDeadlineCal = Calendar.getInstance();
   
   String username = loadStrings("API_Token.txt")[0];
   jsons = new JSONLoader();
@@ -46,8 +47,8 @@ void draw() {
   
   float translateX = 0, translateY = 0;
   if(saving < 0) {
-    translateX = map(mouseX, 0, width, -increase, constrain(maxWidth - width, 0, 999999) + increase);
-    translateY = map(mouseY, 0, height, -increase, constrain(maxHeight - height, 0, 999999) + increase);
+    translateX = map(mouseX, 0, width, 0, constrain(maxWidth - width, 0, 999999) + increase*2);
+    translateY = map(mouseY, 0, height, 0, constrain(maxHeight - height, 0, 999999) + increase*2);
   } else {
     for(int i = 0; i < saving; ++i) {
       translateX += width;
@@ -60,20 +61,19 @@ void draw() {
         }
       }
     }
-    translateX -= increase;
-    translateY -= increase;
   }
   
-  translate(-translateX, -translateY);
+  translate(-translateX + increase, -translateY + increase);
     
-  float yOffset = 5;
-  float circleOffset = 5;
-  float circleSize = 10;
+  float projectNameIndent = 20;
+    
+  float circleOffset = 0;
+  float circleSize = 15;
+  float lineWidth = 1.5f;
   
-  yOffset = increase * 1.5f;
+  float yOffset = increase * 1.5f;
   float startY = yOffset;
   maxWidth = 0;
-  //maxHeight = 0;
   
   textSize(textSize * 2);
   textAlign(LEFT, CENTER);
@@ -92,9 +92,10 @@ void draw() {
       noStroke();
       
       // Draw all the months of the year, as well as the days
-      float xOffset = longestProjectNameWidth + increase + 20;
-      for(int month = 0; month < 12; ++month) {
-        deadlineCal.set(Calendar.MONTH, month);
+      float xOffset = longestProjectNameWidth + increase + projectNameIndent;
+      deadlineCal = Calendar.getInstance();
+      while(!deadlineCal.after(lastDeadlineCal)) {
+        int month = deadlineCal.get(Calendar.MONTH);
         int numDays = deadlineCal.getActualMaximum(Calendar.DAY_OF_MONTH);
 
         // Background
@@ -113,20 +114,23 @@ void draw() {
           text(day, xOffset, increase); 
           xOffset += increase;
         }
+        
+        deadlineCal.add(Calendar.MONTH, 1);
       }
+      
+      if(xOffset > maxWidth)
+        maxWidth = xOffset;
   
       // Draw a background rectangle on the current day
       fill(0, 100, 255, 50);
       noStroke();
-      rect(longestProjectNameWidth + 20 + curCal.get(Calendar.DAY_OF_YEAR) * increase, 0, increase, borderHeight);
+      rect(longestProjectNameWidth + projectNameIndent + curCal.get(Calendar.DAY_OF_YEAR) * increase, 0, increase, borderHeight);
     }
     
     // FOR EACH PROJECT MANAGER
     JSONArray pms = jsons.getPMs();
     for(int i = 0; i < pms.size(); ++i) {
-      //fill(color(mainHue, 255, 100));
-      //mainHue += 50;
-      
+
       String pm = pms.getString(i); 
       JSONArray projects = jsons.getProjects(pm);
       
@@ -153,7 +157,7 @@ void draw() {
           textAlign(LEFT, CENTER);
           if(projectNameWidth > longestProjectNameWidth)
             longestProjectNameWidth = projectNameWidth;
-          text(projectName, 20, yOffset + increase/2f);
+          text(projectName, projectNameIndent, yOffset + increase/2f);
           textAlign(CENTER, CENTER);
         }
         
@@ -161,37 +165,26 @@ void draw() {
         circleOffset = yOffset - increase * 0.4f;
 
         if(type == 1) { // Draw a horizontal line from the last milestone to the very front 
-          setCalendar(deadlineCal, milestones.getJSONObject(milestones.size() - 1));
+          setDeadline(milestones.getJSONObject(milestones.size() - 1));
           
-          float startX = projectNameWidth + 30;
-          float endX = longestProjectNameWidth + 20 + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
-          if(deadlineCal.get(Calendar.YEAR) > curCal.get(Calendar.YEAR))
-            endX = curCal.getActualMaximum(Calendar.DAY_OF_YEAR) * increase; 
+          float startX = projectNameWidth + projectNameIndent + 10;
+          float endX = longestProjectNameWidth + projectNameIndent + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
           
           stroke(0);
-          strokeWeight(1);
+          strokeWeight(lineWidth);
           line(startX, circleOffset, endX, circleOffset);
         }
         
         // FOR EACH MILESTONE
-        for(int k = -1; k < milestones.size(); ++k) {
+        for(int k = 0; k < milestones.size(); ++k) {
+                    
+          JSONObject milestone = milestones.getJSONObject(k);
+          setDeadline(milestone);
+          float endX = longestProjectNameWidth + projectNameIndent + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
+          String title = milestone.getString("title");
           
-          float endX;
-          String title;
-          if(k < 0) { // Creation date
-            setCalendar(creationCal, milestones.getJSONObject(0));
-            if(creationCal.get(Calendar.YEAR) < curCal.get(Calendar.YEAR))
-              endX = longestProjectNameWidth + 20 + increase;
-            else
-              endX = longestProjectNameWidth + 20 + creationCal.get(Calendar.DAY_OF_YEAR) * increase;
-            title = "Created on " + milestones.getJSONObject(0).getString("created-on");
-            title = title.substring(0, title.indexOf("T"));
-          } else { // Deadline date
-            JSONObject milestone = milestones.getJSONObject(k);
-            setCalendar(deadlineCal, milestone);
-            endX = longestProjectNameWidth + 20 + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
-            title = milestone.getString("title");
-          }
+          if(lastDeadlineCal.before(deadlineCal))
+            lastDeadlineCal = (Calendar)deadlineCal.clone();
           
           float w2 = textWidth(title);
           if(type == 0) 
@@ -201,10 +194,10 @@ void draw() {
           switch(type) {
             case 1: // Draw a vertical line up from the milestone to the calendar date
               stroke(255);
-              strokeWeight(5f);
+              strokeWeight(lineWidth * 4);
               line(endX, yOffset + increase/2f, endX, increase + textSize);
               stroke(0);
-              strokeWeight(1);
+              strokeWeight(lineWidth);
               line(endX, yOffset + increase/2f, endX, increase + textSize);
               break;
             case 2: // Draw a white background behind the milestone title
@@ -215,8 +208,7 @@ void draw() {
             case 3: // Draw the milestone title and circle
               fill(0);
               noStroke();
-              if(k < 0) rect(endX, circleOffset, circleSize, circleSize);
-              else circle(endX, circleOffset, circleSize);
+              circle(endX, circleOffset, circleSize);
               text(title, endX, yOffset + increase/2f);
               break;
           }
@@ -229,12 +221,12 @@ void draw() {
         switch(type) {
           case 2:
             stroke(255);
-            strokeWeight(8);
+            strokeWeight(lineWidth * 6);
             line(-maxWidth, yOffset, maxWidth * 2, yOffset);
             break;
           case 3:
             stroke(0);
-            strokeWeight(3);
+            strokeWeight(lineWidth * 3);
             line(-maxWidth, yOffset, maxWidth * 2, yOffset);
             break;
         }
@@ -245,21 +237,15 @@ void draw() {
   maxHeight = yOffset;
   
   if(saving >= 0) {
-    outImage.set((int)(translateX + increase), (int)(translateY + increase), get());
+    outImage.set((int)translateX, (int)translateY, get());
     ++saving;
   }
 }
 
-void setCalendar(Calendar cal, JSONObject milestone) {
+void setDeadline(JSONObject milestone) {
   try {
-    if(cal == creationCal) {
-      String date = milestone.getString("created-on");
-      date = date.substring(0, date.indexOf("T"));
-      cal.setTime(creationParser.parse(date));
-    } else if(cal == deadlineCal) {
-      String date = milestone.getString("deadline");
-      cal.setTime(deadlineParser.parse(date));
-    }
+    String date = milestone.getString("deadline");
+    deadlineCal.setTime(deadlineParser.parse(date));
   } catch(java.text.ParseException e) {
     e.printStackTrace(); 
   }

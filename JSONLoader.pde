@@ -11,13 +11,13 @@ class JSONLoader {
   private String sortedMilestonesJSONFile = "data/sorted_milestones.json";
   private String milestonesJSONFile = "data/milestones.json";
   private String projectsJSONFile = "data/projects.json";
+  private String milestoneWhitelistFile = "MilestoneWhitelist.txt";
   
   private String url = "https://phaconsulting.teamwork.com/";
   private String username = "";
   private String password = "password";
     
   private String[] pmWords = {"PM", "PROJECT MANAGER"};
-
   
   public JSONLoader() {
     milestones = loadJSONObject(milestonesJSONFile);
@@ -121,6 +121,9 @@ class JSONLoader {
   }
   
   private void createSortedJSON() {
+    String[] milestoneWhitelist = loadStrings(milestoneWhitelistFile);
+    //String[] milestoneBlacklist;
+    
     projectManagerMilestones = new JSONObject();
     JSONArray projectManagerNames = new JSONArray();
     projectManagerMilestones.setJSONArray("project-managers", projectManagerNames);
@@ -129,12 +132,11 @@ class JSONLoader {
     for(int i = 0; i < milestoneIDs.size(); ++i) { // For each milestone
       JSONObject milestone = milestones.getJSONObject(milestoneIDs.getString(i));
       
-      String nameLower = milestone.getString("title").toLowerCase();
-      if(nameLower.contains("sub") || nameLower.contains("rfi")) continue;
-      //if(!nameLower.contains("ifc") && !nameLower.contains("asi")) continue;
+      if(!stringContains(milestone.getString("title"), milestoneWhitelist)) {
+        continue; 
+      }
       
       String pmName = milestone.getString("project-manager"); // Get the project manager
-      //String milestoneID = milestone.getString("id");
       String projectID = milestone.getString("project-id");
       
       JSONObject project = projects.getJSONObject(projectID);
@@ -163,6 +165,24 @@ class JSONLoader {
       pmProjectMilestones.append(milestone);
     }
     
+    sortPMs();
+    
+    saveJSONObject(projectManagerMilestones, sortedMilestonesJSONFile);
+  }
+  
+  boolean stringContains(String target, String[] tests) {
+    target = target.toLowerCase();
+    boolean whitelisted = false;
+    for(int j = 0; j < tests.length; ++j) {
+      if(target.contains(tests[j].toLowerCase())) {
+        whitelisted = true;
+        break;
+      }
+    }
+    return whitelisted;
+  }
+  
+  void sortPMs() {
     JSONArray pms = projectManagerMilestones.getJSONArray("project-managers");
     for(int i = 0; i < pms.size(); ++i) {
       JSONArray projectIDsA = projectManagerMilestones.getJSONObject(pms.getString(i)).getJSONArray("project-ids");
@@ -175,7 +195,5 @@ class JSONLoader {
         }
       }
     }
-    
-    saveJSONObject(projectManagerMilestones, sortedMilestonesJSONFile);
   }
 }
