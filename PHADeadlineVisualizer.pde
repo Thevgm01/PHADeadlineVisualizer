@@ -14,7 +14,7 @@ float maxWidth = 0;
 float longestProjectNameWidth = 0;
 
 String[] monthNames = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
-SimpleDateFormat creationParser, deadlineParser;
+SimpleDateFormat dateParser;
 Calendar curCal, creationCal, deadlineCal, earliestCal, latestCal;
 
 boolean mouseInput = true;
@@ -28,19 +28,17 @@ void setup() {
   //frame.setVisible(false);
   background(255);
   noStroke();
-  
+    
   rectMode(CENTER);
   
-  creationParser = new SimpleDateFormat("yyyy-MM-dd");
-  deadlineParser = new SimpleDateFormat("yyyyMMdd");
+  dateParser = new SimpleDateFormat("yyyy-MM-dd");
   curCal = Calendar.getInstance();
   creationCal = Calendar.getInstance();
   deadlineCal = Calendar.getInstance();
   earliestCal = Calendar.getInstance();
   latestCal = Calendar.getInstance();
   
-  String username = loadStrings("API_Token.txt")[0];
-  jsons = new JSONLoader(username);
+  jsons = new JSONLoader();
 }
 
 void draw() {
@@ -100,9 +98,10 @@ void draw() {
         int numDays = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
 
         // Background
-        if(month % 2 == 0) fill(80, 100, 255, 50);
-        else fill(40, 100, 255, 50);
-        rect(xOffset + (numDays - 1) * increase/2f, 0, numDays * increase, borderHeight);    
+        if(month % 2 == 0) {
+          fill(0, 15);
+          rect(xOffset + (numDays - 1) * increase/2f, 0, numDays * increase, borderHeight);
+        }
         
         String monthText = (month + 1) + " - " + monthNames[month];
         // Month name
@@ -247,7 +246,7 @@ void draw() {
 void setDeadline(JSONObject milestone) {
   try {
     String date = milestone.getString("deadline");
-    deadlineCal.setTime(deadlineParser.parse(date));
+    deadlineCal.setTime(dateParser.parse(date));
   } catch(java.text.ParseException e) {
     e.printStackTrace(); 
   }
