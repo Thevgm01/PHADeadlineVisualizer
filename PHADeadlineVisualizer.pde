@@ -95,7 +95,7 @@ void draw() {
       // Draw all the months of the year, as well as the days
       float xOffset = longestProjectNameWidth + increase + projectNameIndent;
       Calendar cal = (Calendar)earliestCal.clone();
-      while(cal.before(latestCal)) {
+      while(!cal.after(latestCal)) {
         int month = cal.get(Calendar.MONTH);
         int numDays = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
 
@@ -150,8 +150,8 @@ void draw() {
       for(int j = 0; j < projects.size(); ++j) {
         String projectID = projects.getString(j);
         JSONArray milestones = jsons.getMilestones(pm, projectID);
-             
-        String projectName = milestones.getJSONObject(0).getString("project-name");
+        
+        String projectName = jsons.getProjectName(milestones.getJSONObject(0).getInt("projectId") + "");
         float projectNameWidth = textWidth(projectName);
                 
         if(type == 0) {
@@ -182,7 +182,7 @@ void draw() {
           JSONObject milestone = milestones.getJSONObject(k);
           setDeadline(milestone);
           float endX = longestProjectNameWidth + projectNameIndent + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
-          String title = milestone.getString("title");
+          String title = milestone.getString("name");
           
           if(deadlineCal.after(latestCal)) {
             latestCal = (Calendar)deadlineCal.clone();
