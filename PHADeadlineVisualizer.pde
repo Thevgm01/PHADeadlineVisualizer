@@ -38,7 +38,7 @@ void setup() {
   earliestCal = Calendar.getInstance();
   latestCal = Calendar.getInstance();
   
-  jsons = new JSONLoader();
+  jsons = new JSONLoader(true);
 }
 
 void draw() {
