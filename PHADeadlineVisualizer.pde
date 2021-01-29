@@ -15,7 +15,7 @@ float longestProjectNameWidth = 0;
 
 String[] monthNames = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 SimpleDateFormat creationParser, deadlineParser;
-Calendar curCal, creationCal, deadlineCal, lastDeadlineCal;
+Calendar curCal, creationCal, deadlineCal, earliestCal, latestCal;
 
 boolean mouseInput = true;
 
@@ -36,10 +36,11 @@ void setup() {
   curCal = Calendar.getInstance();
   creationCal = Calendar.getInstance();
   deadlineCal = Calendar.getInstance();
-  lastDeadlineCal = Calendar.getInstance();
+  earliestCal = Calendar.getInstance();
+  latestCal = Calendar.getInstance();
   
   String username = loadStrings("API_Token.txt")[0];
-  jsons = new JSONLoader();
+  jsons = new JSONLoader(username);
 }
 
 void draw() {
@@ -93,10 +94,10 @@ void draw() {
       
       // Draw all the months of the year, as well as the days
       float xOffset = longestProjectNameWidth + increase + projectNameIndent;
-      deadlineCal = Calendar.getInstance();
-      while(!deadlineCal.after(lastDeadlineCal)) {
-        int month = deadlineCal.get(Calendar.MONTH);
-        int numDays = deadlineCal.getActualMaximum(Calendar.DAY_OF_MONTH);
+      Calendar cal = (Calendar)earliestCal.clone();
+      while(cal.before(latestCal)) {
+        int month = cal.get(Calendar.MONTH);
+        int numDays = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
 
         // Background
         if(month % 2 == 0) fill(80, 100, 255, 50);
@@ -115,7 +116,7 @@ void draw() {
           xOffset += increase;
         }
         
-        deadlineCal.add(Calendar.MONTH, 1);
+        cal.add(Calendar.MONTH, 1);
       }
       
       if(xOffset > maxWidth)
@@ -183,8 +184,9 @@ void draw() {
           float endX = longestProjectNameWidth + projectNameIndent + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
           String title = milestone.getString("title");
           
-          if(lastDeadlineCal.before(deadlineCal))
-            lastDeadlineCal = (Calendar)deadlineCal.clone();
+          if(deadlineCal.after(latestCal)) {
+            latestCal = (Calendar)deadlineCal.clone();
+          }
           
           float w2 = textWidth(title);
           if(type == 0) 

@@ -13,11 +13,14 @@ class JSONLoader {
   private String projectsJSONFile = "data/projects.json";
   private String milestoneWhitelistFile = "MilestoneWhitelist.txt";
   
-  private String url = "https://phaconsulting.teamwork.com/";
+  private String url = "https://phaconsulting.teamwork.com";
+  private String api = "/projects/api/v3/";
   private String username = "";
   private String password = "password";
     
   private String[] pmWords = {"PM", "PROJECT MANAGER"};
+  //private String[] randy = {"Randy", "Visser"};
+  //private String[] tim = {"Tim", "Russel"};
   
   public JSONLoader() {
     milestones = loadJSONObject(milestonesJSONFile);
@@ -40,21 +43,35 @@ class JSONLoader {
     JSONArray milestoneIDs = new JSONArray();
     milestones.setJSONArray("ids", milestoneIDs);
     
-    GetRequest get = new GetRequest(url + "milestones.json?find=upcoming");
-    //GetRequest get = new GetRequest(url + "milestones.json");
-    get.addUser(username, password);
-    get.send();
-    
-    JSONObject milestonesJSON = parseJSONObject(get.getContent());
-    JSONArray milestonesArray = milestonesJSON.getJSONArray("milestones");
-    for(int i = 0; i < milestonesArray.size(); ++i) {
-      JSONObject milestone = milestonesArray.getJSONObject(i);
-      String id = milestone.getString("id");
-      milestones.setJSONObject(id, milestone);
-      milestoneIDs.append(id);
+    String curDate = creationParser.format(new Date());
+    String[] milestoneWhitelist = loadStrings(milestoneWhitelistFile);
+    for(int i = 0; i < milestoneWhitelist.length; ++i) {
+      
+      String term = milestoneWhitelist[i];
+      
+      GetRequest get = new GetRequest(
+        url + api + "milestones.json" + 
+        "?dueAfter=" + curDate +
+        "&searchTerm=" + term);
+      get.addUser(username, password);
+      get.send();
+      
+      JSONObject foundMilestones = parseJSONObject(get.getContent());
+      JSONArray milestonesArray = foundMilestones.getJSONArray("milestones");
+      for(int j = 0; j < milestonesArray.size(); ++j) {
+        JSONObject milestone = milestonesArray.getJSONObject(j);
+        println("\n\n\n\n" + milestone);
+        String id = milestone.getInt("id") + "";
+        milestones.setJSONObject(id, milestone);
+        milestoneIDs.append(id);
+      }
     }
     
+    //GetRequest get = new GetRequest(url + "milestones.json?find=upcoming");
+    //GetRequest get = new GetRequest(url + "milestones.json");
+    
     saveJSONObject(milestones, milestonesJSONFile);
+    exit();
   }
   
   // Get the project associated with each milestone
@@ -71,7 +88,7 @@ class JSONLoader {
       if(!projects.isNull(projectID)) // Skip if we've downloaded this project ID before
         continue;
       
-      GetRequest projectGet = new GetRequest(url + "projects/" + projectID + ".json");
+      GetRequest projectGet = new GetRequest(url + api + "projects/api/v3/projects/" + projectID + ".json");
       projectGet.addUser(username, password);
       //println(url + "projects/" + id + ".json");
       projectGet.send();
