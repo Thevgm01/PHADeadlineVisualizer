@@ -24,7 +24,6 @@ PImage outImage;
 
 void setup() {
   size(1000, 500);
-  colorMode(HSB);
   //frame.setVisible(false);
   background(255);
   noStroke();
@@ -38,8 +37,14 @@ void setup() {
   earliestCal = Calendar.getInstance();
   latestCal = Calendar.getInstance();
   
-  jsons = new JSONLoader(true);
+  jsons = new JSONLoader(false);
 }
+
+// Type
+// 0. Calculation
+// 1. Project/milestone lines
+// 2. White background behind milestone names, project manager backgrounds
+// 3. All text, month backgrounds
 
 void draw() {
   background(255);
@@ -88,10 +93,11 @@ void draw() {
     
     if(type == 3) {
       float borderHeight = (maxHeight + increase) * 2f;
+      textAlign(CENTER, CENTER);
       noStroke();
       
       // Draw all the months of the year, as well as the days
-      float xOffset = longestProjectNameWidth + increase + projectNameIndent;
+      float xOffset = longestProjectNameWidth + projectNameIndent + increase;
       Calendar cal = (Calendar)earliestCal.clone();
       while(!cal.after(latestCal)) {
         int month = cal.get(Calendar.MONTH);
@@ -122,25 +128,29 @@ void draw() {
         maxWidth = xOffset;
   
       // Draw a background rectangle on the current day
-      fill(0, 100, 255, 50);
+      //blendMode(DIFFERENCE);
+      fill(255, 0, 0, 50);
       noStroke();
       rect(longestProjectNameWidth + projectNameIndent + curCal.get(Calendar.DAY_OF_YEAR) * increase, 0, increase, borderHeight);
+      //blendMode(BLEND);
     }
     
     // FOR EACH PROJECT MANAGER
     JSONArray pms = jsons.getPMs();
     for(int i = 0; i < pms.size(); ++i) {
 
+      float startYPM = yOffset;
+      
       String pm = pms.getString(i); 
       JSONArray projects = jsons.getProjects(pm);
       
-      if(type == 0) {
+      if(type == 3) {
         String numProjects = projects.size() + " active project";
         if(projects.size() > 1) numProjects += "s";
         
         textAlign(LEFT, CENTER);
         fill(0);
-        text(pm + " - " + numProjects, 0, yOffset + increase/2f);
+        text(pm + " - " + numProjects, textSize * 0.6f, yOffset + increase/2f);
       }
       
       yOffset += increase; 
@@ -150,13 +160,14 @@ void draw() {
         String projectID = projects.getString(j);
         JSONArray milestones = jsons.getMilestones(pm, projectID);
         
-        String projectName = jsons.getProjectName(milestones.getJSONObject(0).getInt("projectId") + "");
+        String projectName = jsons.getProjectName(projectID);
         float projectNameWidth = textWidth(projectName);
                 
-        if(type == 0) {
+        if(type == 0 && projectNameWidth > longestProjectNameWidth)
+          longestProjectNameWidth = projectNameWidth;
+                
+        if(type == 3) {
           textAlign(LEFT, CENTER);
-          if(projectNameWidth > longestProjectNameWidth)
-            longestProjectNameWidth = projectNameWidth;
           text(projectName, projectNameIndent, yOffset + increase/2f);
           textAlign(CENTER, CENTER);
         }
@@ -165,7 +176,7 @@ void draw() {
         circleOffset = yOffset - increase * 0.4f;
 
         if(type == 1) { // Draw a horizontal line from the last milestone to the very front 
-          setDeadline(milestones.getJSONObject(milestones.size() - 1));
+          setDeadline(jsons.getMilestone(milestones.getString(milestones.size() - 1)));
           
           float startX = projectNameWidth + projectNameIndent + 10;
           float endX = longestProjectNameWidth + projectNameIndent + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
@@ -178,7 +189,7 @@ void draw() {
         // FOR EACH MILESTONE
         for(int k = 0; k < milestones.size(); ++k) {
                     
-          JSONObject milestone = milestones.getJSONObject(k);
+          JSONObject milestone = jsons.getMilestone(milestones.getString(k));
           setDeadline(milestone);
           float endX = longestProjectNameWidth + projectNameIndent + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
           String title = milestone.getString("name");
@@ -218,7 +229,7 @@ void draw() {
         }
         yOffset += increase * 0.25f;
       }
-      if(i < pms.size() - 1) {
+      /*if(i < pms.size() - 1) {
         switch(type) {
           case 2:
             stroke(255);
@@ -231,6 +242,14 @@ void draw() {
             line(-maxWidth, yOffset, maxWidth * 2, yOffset);
             break;
         }
+      }*/
+      if(type == 2) {
+        rectMode(CORNER);
+        String hex = jsons.getPMHex(pm);
+        fill(unhex(hex), 20);
+        noStroke();
+        rect(0, startYPM, maxWidth, yOffset - startYPM);
+        rectMode(CENTER);
       }
     }
   }
