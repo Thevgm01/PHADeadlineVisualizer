@@ -112,8 +112,8 @@ void draw() {
         String monthText = (month + 1) + " - " + monthNames[month];
         // Month name
         fill(0);
-        text(monthText, xOffset + numDays * increase / 2f, 0); // Centered
-        //text(monthText, xOffset + textWidth(monthText) / 2f, 0); // Left aligned
+        //text(monthText, xOffset + numDays * increase / 2f, 0); // Centered
+        text(monthText, xOffset + textWidth(monthText) / 2f, 0); // Left aligned
         
         // Days
         for(int day = 1; day <= numDays; ++day) {
@@ -125,7 +125,7 @@ void draw() {
       }
       
       if(xOffset > maxWidth)
-        maxWidth = xOffset;
+        maxWidth = xOffset + textSize * 0.6f;
   
       // Draw a background rectangle on the current day
       //blendMode(DIFFERENCE);
@@ -186,9 +186,12 @@ void draw() {
           line(startX, circleOffset, endX, circleOffset);
         }
         
+        float[] largestXPerMilestone = new float[milestones.size()];
+        int largestYOffsetIndex = 0;
+        
         // FOR EACH MILESTONE
         for(int k = 0; k < milestones.size(); ++k) {
-                    
+          
           JSONObject milestone = jsons.getMilestone(milestones.getString(k));
           setDeadline(milestone);
           float endX = longestProjectNameWidth + projectNameIndent + deadlineCal.get(Calendar.DAY_OF_YEAR) * increase;
@@ -198,37 +201,44 @@ void draw() {
             latestCal = (Calendar)deadlineCal.clone();
           }
           
-          float w2 = textWidth(title);
+          float w2 = textWidth(title)/2f;
           if(type == 0) 
-            if(endX + w2/2f > maxWidth)
-              maxWidth = endX + w2/2f;
-                    
+            if(endX + w2 > maxWidth)
+              maxWidth = endX + w2 + textSize * 0.6f;
+          
+          int yOffsetIndex = 0;
+          while(largestXPerMilestone[yOffsetIndex] >= endX - w2)
+            ++yOffsetIndex;
+          largestXPerMilestone[yOffsetIndex] = endX + w2;
+          if(yOffsetIndex > largestYOffsetIndex)
+            largestYOffsetIndex = yOffsetIndex;
+          float milestoneYoffset = yOffsetIndex * increase;
+          
           switch(type) {
             case 1: // Draw a vertical line up from the milestone to the calendar date
               stroke(255);
               strokeWeight(lineWidth * 4);
-              line(endX, yOffset + increase/2f, endX, increase + textSize);
+              line(endX, yOffset + milestoneYoffset, endX, increase + textSize);
               stroke(0);
               strokeWeight(lineWidth);
-              line(endX, yOffset + increase/2f, endX, increase + textSize);
+              line(endX, yOffset + milestoneYoffset, endX, increase + textSize);
               break;
             case 2: // Draw a white background behind the milestone title
               fill(255);
               noStroke();
-              rect(endX, yOffset + increase * 0.6f, w2, textSize + 5f);
+              rect(endX, yOffset + milestoneYoffset + increase * 0.5f, w2*2f, textSize + 5f);
               break;
             case 3: // Draw the milestone title and circle
               fill(0);
               noStroke();
               circle(endX, circleOffset, circleSize);
-              text(title, endX, yOffset + increase/2f);
+              text(title, endX, yOffset + milestoneYoffset + increase * 0.4f);
               break;
           }
-         
-          yOffset += increase;
         }
-        yOffset += increase * 0.25f;
+        yOffset += largestYOffsetIndex * increase + increase * 0.8f;
       }
+      yOffset += textSize * 0.6f;
       /*if(i < pms.size() - 1) {
         switch(type) {
           case 2:
