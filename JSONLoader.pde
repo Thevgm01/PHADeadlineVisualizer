@@ -27,12 +27,12 @@ class JSONLoader {
     if(reload) {
       downloadMilestonesJSON();
       downloadProjectsJSON();
-      addPriorMilestones();
-      setProjectManagers();
+      //addPriorMilestones();
     } else {
       milestones = loadJSONObject(milestonesJSONFile);
       projects = loadJSONObject(projectsJSONFile);
     }
+    setProjectManagers();
     createSortedJSON();
   }
   
@@ -55,6 +55,7 @@ class JSONLoader {
     boolean hasMore = true;
     while(hasMore) {
       GetRequest get = new GetRequest(url + api + "milestones.json?status=upcoming&page=" + ++page);
+      //GetRequest get = new GetRequest(url + api + "milestones.json?page=" + ++page);
       get.addUser(username, password);
       get.send();
     
@@ -97,18 +98,24 @@ class JSONLoader {
     String projectQuery = String.join(",", projectIdStrings);
     
     // Request all projects with matching Ids (repeats seem to be okay)
-    GetRequest get = new GetRequest(url + api + "projects.json?projectIds=" + projectQuery);
-    get.addUser(username, password);
-    get.send();
-    
-    // Add found projects to a JSON object that includes an array with their Ids
-    JSONObject foundProjects = parseJSONObject(get.getContent());
-    JSONArray projectsArray = foundProjects.getJSONArray("projects");
-    for(int i = 0; i < projectsArray.size(); ++i) {
-        JSONObject project = projectsArray.getJSONObject(i);
-        String id = project.getInt("id") + "";
-        projects.setJSONObject(id, project);
-        projectIds.append(id);
+    int page = 0;
+    boolean hasMore = true;
+    while(hasMore) {
+      GetRequest get = new GetRequest(url + api + "projects.json?projectIds=" + projectQuery + "&page=" + ++page);
+      get.addUser(username, password);
+      get.send();
+      
+      // Add found projects to a JSON object that includes an array with their Ids
+      JSONObject foundProjects = parseJSONObject(get.getContent());
+      JSONArray projectsArray = foundProjects.getJSONArray("projects");
+      for(int i = 0; i < projectsArray.size(); ++i) {
+          JSONObject project = projectsArray.getJSONObject(i);
+          String id = project.getInt("id") + "";
+          projects.setJSONObject(id, project);
+          projectIds.append(id);
+      }
+      
+      hasMore = foundProjects.getJSONObject("meta").getJSONObject("page").getBoolean("hasMore");
     }
     
     saveJSONObject(projects, projectsJSONFile); 
