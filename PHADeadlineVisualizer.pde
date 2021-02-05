@@ -38,7 +38,10 @@ void setup() {
   deadlineCal = Calendar.getInstance();
   earliestCal = Calendar.getInstance();
   latestCal = Calendar.getInstance();
-  
+
+  earliestCal.set(Calendar.DAY_OF_MONTH, 0);
+  latestCal.set(Calendar.DAY_OF_MONTH, 0);
+
   jsons = new JSONLoader(true);
 }
 
@@ -53,15 +56,15 @@ void draw() {
   
   float translateX = 0, translateY = 0;
   if(saving < 0) {
-    translateX = map(mouseX, 0, width, 0, constrain(maxWidth - width, 0, 999999) + increase*2);
-    translateY = map(mouseY, 0, height, 0, constrain(maxHeight - height, 0, 999999) + increase*2);
+    translateX = map(mouseX, 0, width, 0, constrain(maxWidth - width, 0, 999999) + increase);
+    translateY = map(mouseY, 0, height, 0, constrain(maxHeight - height, 0, 999999) + increase);
   } else {
     for(int i = 0; i < saving; ++i) {
       translateX += width;
       if(translateX >= maxWidth) {
         translateX = 0;
         translateY += height;
-        if(translateY >= maxHeight) {
+        if(translateY >= maxHeight + increase) {
           saveOut();
           break; 
         }
@@ -98,14 +101,15 @@ void draw() {
       
       // Draw all the months of the year, as well as the days
       float xOffset = longestProjectNameWidth + projectNameIndent + increase;
-      Calendar cal = (Calendar)earliestCal.clone();
+      Calendar monthCal = (Calendar)earliestCal.clone();
       int backgroundOffset = 0;
-      if(cal.get(Calendar.MONTH) % 2 == 1) backgroundOffset = 1;
-      //cal.set(Calendar.DAY_OF_YEAR, 0);
-      while(!cal.after(latestCal)) {
-        int month = cal.get(Calendar.MONTH);
-        int numDays = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
-        int startDay = cal.get(Calendar.DAY_OF_WEEK);
+      if(monthCal.get(Calendar.MONTH) % 2 == 1) backgroundOffset = 1;
+      while(!monthCal.after(latestCal)) {
+        monthCal.add(Calendar.MONTH, 1);
+        
+        int month = monthCal.get(Calendar.MONTH);
+        int numDays = monthCal.getActualMaximum(Calendar.DAY_OF_MONTH);
+        int startDay = monthCal.get(Calendar.DAY_OF_WEEK);
 
         // Background
         if((month + backgroundOffset) % 2 == 0) {
@@ -126,8 +130,6 @@ void draw() {
           text(day, xOffset, increase * 2f); 
           xOffset += increase;
         }
-        
-        cal.add(Calendar.MONTH, 1);
       }
       
       if(xOffset > maxWidth)
@@ -137,7 +139,7 @@ void draw() {
       //blendMode(DIFFERENCE);
       fill(255, 0, 0, 50);
       noStroke();
-      rect(getX(curCal), 0, increase, borderHeight);
+      rect(getXFromDay(curCal), 0, increase, borderHeight);
       //blendMode(BLEND);
     }
     
@@ -188,7 +190,7 @@ void draw() {
           
           stroke(0);
           strokeWeight(lineWidth);
-          line(startX, circleOffset, getX(deadlineCal), circleOffset);
+          line(startX, circleOffset, getXFromDay(deadlineCal), circleOffset);
         }
         
         float[] largestXPerMilestone = new float[milestones.size()];
@@ -199,17 +201,21 @@ void draw() {
           
           JSONObject milestone = jsons.getMilestone(milestones.getString(k));
           setDeadline(milestone);
-          float endX = getX(deadlineCal);
+          float endX = getXFromDay(deadlineCal);
           String title = milestone.getString("name");
           
           float w2 = textWidth(title)/2f;
           if(type == 0) {
             if(endX + w2 > maxWidth)
               maxWidth = endX + w2 + textSize * 0.6f;
-            if(deadlineCal.before(earliestCal))
+            if(deadlineCal.before(earliestCal)) {
               earliestCal = (Calendar)deadlineCal.clone();
-            if(deadlineCal.after(latestCal))
+              earliestCal.set(Calendar.DAY_OF_MONTH, 0);
+            }
+            if(deadlineCal.after(latestCal)) {
               latestCal = (Calendar)deadlineCal.clone();
+              latestCal.set(Calendar.DAY_OF_MONTH, 0);
+            }
           }
           
           int yOffsetIndex = 0;
@@ -278,8 +284,8 @@ void draw() {
   }
 }
 
-float getX(Calendar cal) {
-  return longestProjectNameWidth + projectNameIndent + (cal.get(Calendar.DAY_OF_YEAR) - earliestCal.get(Calendar.DAY_OF_YEAR) + 1) * increase;
+float getXFromDay(Calendar cal) {
+  return longestProjectNameWidth + projectNameIndent + (cal.get(Calendar.DAY_OF_YEAR) - earliestCal.get(Calendar.DAY_OF_YEAR)) * increase;
 }
 
 void setDeadline(JSONObject milestone) {

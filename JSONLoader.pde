@@ -97,7 +97,7 @@ class JSONLoader {
       projectIdStrings[i] = milestones.getJSONObject(milestoneIds.getString(i)).getInt("projectId") + "";
     String projectQuery = String.join(",", projectIdStrings);
     
-    // Request all projects with matching Ids (repeats seem to be okay)
+    // Request all projects with matching Ids (repeats don't seem to return duplicates)
     int page = 0;
     boolean hasMore = true;
     while(hasMore) {
