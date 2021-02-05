@@ -42,7 +42,7 @@ void setup() {
   earliestCal.set(Calendar.DAY_OF_MONTH, 0);
   latestCal.set(Calendar.DAY_OF_MONTH, 0);
 
-  jsons = new JSONLoader(true);
+  jsons = new JSONLoader();
 }
 
 // Type

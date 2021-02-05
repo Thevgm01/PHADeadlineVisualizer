@@ -13,25 +13,17 @@ class JSONLoader {
   private JSONObject projects;
   
   private String configJSONFile = "config.json";
-  private String sortedMilestonesJSONFile = "data/sorted_milestones.json";
-  private String milestonesJSONFile = "data/milestones.json";
-  private String projectsJSONFile = "data/projects.json";
   
   private String password = "password";
   private String api = "/projects/api/v3/";
 
   private String[] pmWords = {"pm", "project manager"};
 
-  public JSONLoader(boolean reload) {
+  public JSONLoader() {
     config = loadJSONObject(configJSONFile);
-    if(reload) {
-      downloadMilestonesJSON();
-      downloadProjectsJSON();
-      //addPriorMilestones();
-    } else {
-      milestones = loadJSONObject(milestonesJSONFile);
-      projects = loadJSONObject(projectsJSONFile);
-    }
+    downloadMilestonesJSON();
+    downloadProjectsJSON();
+    //addPriorMilestones();
     setProjectManagers();
     createSortedJSON();
   }
@@ -75,7 +67,7 @@ class JSONLoader {
       hasMore = foundMilestones.getJSONObject("meta").getJSONObject("page").getBoolean("hasMore");
     }
         
-    saveJSONObject(milestones, milestonesJSONFile);
+    //saveJSONObject(milestones, milestonesJSONFile);
   }
   
   // Get the project associated with each milestone
@@ -117,8 +109,6 @@ class JSONLoader {
       
       hasMore = foundProjects.getJSONObject("meta").getJSONObject("page").getBoolean("hasMore");
     }
-    
-    saveJSONObject(projects, projectsJSONFile); 
   }
   
   // Set the PM for the milestone and project from the project's description
@@ -152,9 +142,6 @@ class JSONLoader {
       JSONObject project = projects.getJSONObject(projectId);
       milestone.setString("projectManager", getProjectManager(project));
     }
-    
-    saveJSONObject(milestones, milestonesJSONFile);
-    saveJSONObject(projects, projectsJSONFile);
   }
   
   // Get the project manager from the project description
@@ -244,8 +231,6 @@ class JSONLoader {
           milestoneIds.append(id);
         }
     }
-    
-    saveJSONObject(milestones, milestonesJSONFile); 
   }
     
   private void createSortedJSON() {
@@ -299,8 +284,6 @@ class JSONLoader {
     
     // Sort the project managers by their number of active projects
     sortPMs();
-    
-    saveJSONObject(projectManagerMilestones, sortedMilestonesJSONFile);
   }
   
   boolean stringContainsIgnoreCase(String target, JSONArray tests) {
