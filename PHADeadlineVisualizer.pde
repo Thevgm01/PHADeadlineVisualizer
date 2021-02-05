@@ -26,9 +26,14 @@ PImage outImage;
 
 void setup() {
   size(1000, 500);
-  //frame.setVisible(false);
+  //surface.setVisible(false);
+
   background(255);
+  fill(0);
   noStroke();
+  textSize(50);
+  textAlign(CENTER, CENTER);
+  text("Loading...", width/2, height/2);
     
   rectMode(CENTER);
   
@@ -53,7 +58,7 @@ void setup() {
 
 void draw() {
   background(255);
-  
+    
   float translateX = 0, translateY = 0;
   if(saving < 0) {
     translateX = map(mouseX, 0, width, 0, constrain(maxWidth - width, 0, 999999) + increase);
@@ -103,7 +108,6 @@ void draw() {
       float xOffset = longestProjectNameWidth + projectNameIndent + increase;
       Calendar monthCal = (Calendar)earliestCal.clone();
       int backgroundOffset = 0;
-      if(monthCal.get(Calendar.MONTH) % 2 == 1) backgroundOffset = 1;
       while(!monthCal.after(latestCal)) {
         monthCal.add(Calendar.MONTH, 1);
         
@@ -112,7 +116,7 @@ void draw() {
         int startDay = monthCal.get(Calendar.DAY_OF_WEEK);
 
         // Background
-        if((month + backgroundOffset) % 2 == 0) {
+        if(++backgroundOffset % 2 == 1) {
           fill(0, 15);
           rect(xOffset + (numDays - 1) * increase/2f, 0, numDays * increase, borderHeight);
         }
@@ -292,7 +296,9 @@ void draw() {
         
   maxHeight = yOffset;
   
-  if(saving >= 0) {
+    
+  if(args == null && saving < 0) saveOut();
+  else if(saving >= 0) {
     outImage.set((int)translateX, (int)translateY, get());
     ++saving;
   }
@@ -327,6 +333,7 @@ void saveOut() {
     String outFilename = "PHA Milestones " + formatter.format(new Date()) + ".png";
     outFilename = outFilename.replace(" ", "_");
     outImage.save(outFilename);
+    if(args == null) exit();
   } else {
     saving = 0;
     outImage = createImage((int)(maxWidth + increase * 2), (int)(maxHeight + increase * 2), RGB);

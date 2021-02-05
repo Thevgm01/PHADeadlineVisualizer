@@ -4,3 +4,7 @@ data/
 *.png
 
 config.json
+
+PHADeadlineVisualizer/
+
+*.zip
