@@ -152,19 +152,33 @@ void draw() {
       String pm = pms.getString(i); 
       JSONArray projects = jsons.getProjects(pm);
       
-      if(type == 3) {
+      if(type == 0 || type == 3) {
         String numProjects = projects.size() + " active project";
         if(projects.size() > 1) numProjects += "s";
         
-        textAlign(LEFT, CENTER);
-        fill(0);
-        text(pm + " - " + numProjects, textSize * 0.6f, yOffset + increase/2f);
+        int milestones = 0;
+        for(int j = 0; j < projects.size(); ++j)
+          milestones += jsons.getMilestones(pm, projects.getString(j)).size();
+        String numMilestones = milestones + " upcoming milestone";
+        if(milestones > 1) numMilestones += "s";
+        
+        String pmStr = pm + " - " + numProjects + ", " + numMilestones;
+                
+        float pmWidth = textWidth(pmStr);
+        if(type == 0 && pmWidth > longestProjectNameWidth) {
+          longestProjectNameWidth = pmWidth - projectNameIndent;
+        } else if(type == 3) {
+          textAlign(LEFT, CENTER);
+          fill(0);
+          text(pmStr, textSize * 0.6f, yOffset + increase/2f);
+        }
       }
       
       yOffset += increase; 
       
       // FOR EACH PROJECT
       for(int j = 0; j < projects.size(); ++j) {
+        
         String projectID = projects.getString(j);
         JSONArray milestones = jsons.getMilestones(pm, projectID);
         
