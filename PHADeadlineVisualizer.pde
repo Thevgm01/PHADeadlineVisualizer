@@ -3,8 +3,6 @@ import java.util.Date;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
 
-final boolean SEND_NEW_REQUESTS = false;
-
 JSONLoader jsons;
 
 float textSize = 15;
@@ -33,7 +31,6 @@ void setup() {
   noStroke();
   textSize(50);
   textAlign(CENTER, CENTER);
-  text("Loading...", width/2, height/2);
     
   rectMode(CENTER);
   
@@ -47,6 +44,11 @@ void setup() {
   earliestCal.set(Calendar.DAY_OF_MONTH, 0);
   latestCal.set(Calendar.DAY_OF_MONTH, 0);
 
+  thread("loadJSONS");
+  //jsons = new JSONLoader();
+}
+
+void loadJSONS() {
   jsons = new JSONLoader();
 }
 
@@ -58,7 +60,22 @@ void setup() {
 
 void draw() {
   background(255);
-    
+  
+  // If we're not done loading yet...
+  if(jsons == null) {
+    translate(width/2, height/2);
+    textSize(50);
+    fill(0);
+    text("Loading...", 0, 0);
+    float w = textWidth("Loading...");
+    noFill();
+    stroke(0);
+    strokeWeight(10);
+    float startAngle = frameCount / 30f + (sin(frameCount / 35f) + 1) * TWO_PI;
+    arc(0, 0, w * 1.1f, w * 1.1f, startAngle, startAngle + cos(frameCount / 25f) * HALF_PI + HALF_PI);
+    return;
+  }
+      
   float translateX = 0, translateY = 0;
   if(saving < 0) {
     translateX = map(mouseX, 0, width, 0, constrain(maxWidth - width, 0, 999999) + increase);

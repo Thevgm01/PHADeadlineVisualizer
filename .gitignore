@@ -8,3 +8,7 @@ config.json
 PHADeadlineVisualizer/
 
 *.zip
+
+application.windows32/
+
+application.windows64/

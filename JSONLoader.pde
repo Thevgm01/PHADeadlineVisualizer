@@ -1,3 +1,5 @@
+
+
 class JSONLoader {
   
   private JSONObject projectManagerMilestones;
@@ -32,7 +34,7 @@ class JSONLoader {
   private void downloadMilestonesJSON() {
     
     // Config
-    String username = config.getString("userToken");
+    String username = config.getString("apiKey");
     String url = config.getString("companyTeamworkURL");
     JSONArray milestoneWhitelist = config.getJSONArray("milestoneWhitelist");
     JSONArray milestoneBlacklist = config.getJSONArray("milestoneBlacklist");
@@ -74,7 +76,7 @@ class JSONLoader {
   private void downloadProjectsJSON() {
     
     // Config
-    String username = config.getString("userToken");
+    String username = config.getString("apiKey");
     String url = config.getString("companyTeamworkURL");
     
     // Store projects
@@ -195,7 +197,7 @@ class JSONLoader {
   private void addPriorMilestones() {
     
     // Config
-    String username = config.getString("userToken");
+    String username = config.getString("apiKey");
     String url = config.getString("companyTeamworkURL");
     JSONArray projectIds = projects.getJSONArray("ids");
     JSONArray milestoneIds = milestones.getJSONArray("ids");
