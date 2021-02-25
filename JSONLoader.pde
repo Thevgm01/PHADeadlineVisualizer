@@ -10,6 +10,8 @@ class JSONLoader {
   public String getProjectName(String projectId) { return projects.getJSONObject(projectId).getString("name"); }
   public String getPMHex(String pm) { return "ff" + config.getJSONObject("projectManagers").getJSONObject(pm).getString("color"); }
 
+  public int status = 0;
+
   private JSONObject config;
   private JSONObject milestones;
   private JSONObject projects;
@@ -22,12 +24,17 @@ class JSONLoader {
   private String[] pmWords = {"pm", "project manager"};
 
   public JSONLoader() {
-    config = loadJSONObject(configJSONFile);
-    downloadMilestonesJSON();
-    downloadProjectsJSON();
-    //addPriorMilestones();
-    setProjectManagers();
-    createSortedJSON();
+    try {
+      config = loadJSONObject(configJSONFile);
+      downloadMilestonesJSON();
+      downloadProjectsJSON();
+      //addPriorMilestones();
+      setProjectManagers();
+      createSortedJSON();
+      status = 1;
+    } catch(Exception e) {
+      status = -1; 
+    }
   }
   
   // Get all upcoming milestones

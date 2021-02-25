@@ -62,7 +62,7 @@ void draw() {
   background(255);
   
   // If we're not done loading yet...
-  if(jsons == null) {
+  if(jsons == null || jsons.status == 0) {
     translate(width/2, height/2);
     textSize(50);
     fill(0);
@@ -73,6 +73,12 @@ void draw() {
     strokeWeight(10);
     float startAngle = frameCount / 30f + (sin(frameCount / 35f) + 1) * TWO_PI;
     arc(0, 0, w * 1.1f, w * 1.1f, startAngle, startAngle + cos(frameCount / 25f) * HALF_PI + HALF_PI);
+    return;
+  } else if(jsons.status == -1) {
+    translate(width/2, height/2);
+    textSize(50);
+    fill(0);
+    text("Error: is the\nAPI key set in\nconfig.json?", 0, 0);
     return;
   }
       
