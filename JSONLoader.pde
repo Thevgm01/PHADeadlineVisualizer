@@ -2,17 +2,18 @@
 
 class JSONLoader {
   
-  private JSONObject projectManagerMilestones;
-  public JSONArray getPMs() { return projectManagerMilestones.getJSONArray("projectManagers"); }
-  public JSONArray getProjects(String pm) { return projectManagerMilestones.getJSONObject(pm).getJSONArray("projectIds"); }
-  public JSONArray getMilestones(String pm, String projectId) { return projectManagerMilestones.getJSONObject(pm).getJSONArray(projectId); }
-  public JSONObject getMilestone(String milestoneID) { return milestones.getJSONObject(milestoneID); }
+  private JSONObject sorted;
+  public JSONArray getPMs() { return sorted.getJSONArray("projectManagers"); }
+  public JSONArray getProjects(String pm) { return sorted.getJSONObject(pm).getJSONArray("projectIds"); }
+  public JSONArray getMilestones(String pm, String projectId) { return sorted.getJSONObject(pm).getJSONArray(projectId); }
+  public JSONObject getMilestone(String milestoneID) { return everything.getJSONObject(milestoneID); }
   public String getProjectName(String projectId) { return projects.getJSONObject(projectId).getString("name"); }
-  public String getPMHex(String pm) { return "ff" + config.getJSONObject("projectManagers").getJSONObject(pm).getString("color"); }
+  public String getPMHex(String pm) { return sorted.getJSONObject(pm).getString("color"); }
 
   public int status = 0;
 
   private JSONObject config;
+  private JSONObject everything;
   private JSONObject milestones;
   private JSONObject projects;
   
@@ -27,17 +28,20 @@ class JSONLoader {
     try {
       config = loadJSONObject(configJSONFile);
       downloadMilestonesJSON();
-      downloadProjectsJSON();
+      downloadAbsencesJSON();
       //addPriorMilestones();
-      setProjectManagers();
       createSortedJSON();
       status = 1;
+      
+      //saveJSONObject(everything, "everything.json");
+      //saveJSONObject(sorted, "sorted.json");
     } catch(Exception e) {
+      e.printStackTrace();
       status = -1; 
     }
   }
   
-  // Get all upcoming milestones
+  // Get all upcoming milestones and their projects
   private void downloadMilestonesJSON() {
     
     // Config
@@ -46,112 +50,48 @@ class JSONLoader {
     JSONArray milestoneWhitelist = config.getJSONArray("milestoneWhitelist");
     JSONArray milestoneBlacklist = config.getJSONArray("milestoneBlacklist");
     
-    // Store milestones
-    milestones = new JSONObject();
-    JSONArray milestoneIds = new JSONArray();
-    milestones.setJSONArray("ids", milestoneIds);
+    // Initialize JSON object
+    everything = new JSONObject();
+    JSONArray allMilestones = new JSONArray();
+    JSONObject allProjects = new JSONObject();
+    everything.setJSONArray("milestones", allMilestones);
+    everything.setJSONObject("projects", allProjects);
     
     // Download all upcoming milestones (with pagination)
     int page = 0;
     boolean hasMore = true;
     while(hasMore) {
-      GetRequest get = new GetRequest(url + api + "milestones.json?status=upcoming&page=" + ++page);
-      //GetRequest get = new GetRequest(url + api + "milestones.json?page=" + ++page);
+      GetRequest get = new GetRequest(url + api + "milestones.json?include=projects&status=upcoming&page=" + ++page);
+
       get.addUser(username, password);
       get.send();
     
-      JSONObject foundMilestones = parseJSONObject(get.getContent());
-      JSONArray milestonesArray = foundMilestones.getJSONArray("milestones");
+      JSONObject requestedMilestones = parseJSONObject(get.getContent());
+      JSONArray downloadedMilestones = requestedMilestones.getJSONArray("milestones");
+      JSONObject downloadedProjects = requestedMilestones.getJSONObject("included").getJSONObject("projects");
       
-      // Add found milestones to a JSON object that includes an array with their Ids
-      for(int i = 0; i < milestonesArray.size(); ++i) {
-        JSONObject milestone = milestonesArray.getJSONObject(i);
+      // Go through each downloaded milestone
+      for(int i = 0; i < downloadedMilestones.size(); ++i) {
+        JSONObject milestone = downloadedMilestones.getJSONObject(i);
+        // If the milestone's name is in the whitelist and isn't in the blacklist
         if(checkLists(milestone.getString("name"), milestoneWhitelist, milestoneBlacklist)) {
-          String id = milestone.getInt("id") + "";
-          milestones.setJSONObject(id, milestone);
-          milestoneIds.append(id);
+          
+          String projectId = milestone.getInt("projectId") + "";
+          if(allProjects.isNull(projectId)) {
+            JSONObject project = downloadedProjects.getJSONObject(projectId);
+            project.setString("projectManager", getProjectManager(project));
+            allProjects.setJSONObject(projectId, project);
+          }
+          
+          allMilestones.append(milestone);
         }
       }
       
-      hasMore = foundMilestones.getJSONObject("meta").getJSONObject("page").getBoolean("hasMore");
+      hasMore = requestedMilestones.getJSONObject("meta").getJSONObject("page").getBoolean("hasMore");
     }
         
-    //saveJSONObject(milestones, milestonesJSONFile);
-  }
-  
-  // Get the project associated with each milestone
-  private void downloadProjectsJSON() {
-    
-    // Config
-    String username = config.getString("apiKey");
-    String url = config.getString("companyTeamworkURL");
-    
-    // Store projects
-    projects = new JSONObject();
-    JSONArray projectIds = new JSONArray();
-    projects.setJSONArray("ids", projectIds);
-    
-    // Get all project Ids from all milestones and put them inside of a string
-    JSONArray milestoneIds = milestones.getJSONArray("ids");
-    String[] projectIdStrings = new String[milestoneIds.size()];
-    for(int i = 0; i < milestoneIds.size(); ++i)
-      projectIdStrings[i] = milestones.getJSONObject(milestoneIds.getString(i)).getInt("projectId") + "";
-    String projectQuery = String.join(",", projectIdStrings);
-    
-    // Request all projects with matching Ids (repeats don't seem to return duplicates)
-    int page = 0;
-    boolean hasMore = true;
-    while(hasMore) {
-      GetRequest get = new GetRequest(url + api + "projects.json?projectIds=" + projectQuery + "&page=" + ++page);
-      get.addUser(username, password);
-      get.send();
-      
-      // Add found projects to a JSON object that includes an array with their Ids
-      JSONObject foundProjects = parseJSONObject(get.getContent());
-      JSONArray projectsArray = foundProjects.getJSONArray("projects");
-      for(int i = 0; i < projectsArray.size(); ++i) {
-          JSONObject project = projectsArray.getJSONObject(i);
-          String id = project.getInt("id") + "";
-          projects.setJSONObject(id, project);
-          projectIds.append(id);
-      }
-      
-      hasMore = foundProjects.getJSONObject("meta").getJSONObject("page").getBoolean("hasMore");
-    }
-  }
-  
-  // Set the PM for the milestone and project from the project's description
-  private void setProjectManagers() {
-    
-    // Config
-    JSONObject pms = config.getJSONObject("projectManagers");
-    
-    // Set the name permutations for the config
-    JSONArray pmNames = pms.getJSONArray("names");
-    for(int i = 0; i < pmNames.size(); ++i) {
-      String name = pmNames.getString(i);
-      pms.getJSONObject(name).setJSONArray("permutations", getNamePermutations(name));
-    }
-    //saveJSONObject(config, "temp.json");
-    
-    // Set the project manager for each project
-    JSONArray projectIds = projects.getJSONArray("ids");
-    for(int i = 0; i < projectIds.size(); ++i) {
-      String projectId = projectIds.getString(i);
-      JSONObject project = projects.getJSONObject(projectId);
-      project.setString("projectManager", getProjectManager(project));
-    }
-    
-    // Set the project manager for each milestone from its linked project
-    JSONArray milestoneIds = milestones.getJSONArray("ids");
-    for(int i = 0; i < milestoneIds.size(); ++i) {
-      String milestoneId = milestoneIds.getString(i);
-      JSONObject milestone = milestones.getJSONObject(milestoneId);
-      String projectId = milestone.getInt("projectId") + "";
-      JSONObject project = projects.getJSONObject(projectId);
-      milestone.setString("projectManager", getProjectManager(project));
-    }
-  }
+    //saveJSONObject(allMilestonesAndProjects, "everything.json");
+  } // downloadMilestonesJSON
   
   // Get the project manager from the project description
   private String getProjectManager(JSONObject project) {
@@ -160,6 +100,14 @@ class JSONLoader {
     JSONObject pms = config.getJSONObject("projectManagers");
     JSONArray pmNames = pms.getJSONArray("names");
     String desc = project.getString("description");
+    
+    // Set the name permutations for the config
+    if(pms.getJSONObject(pmNames.getString(0)).isNull("permutations")) {
+      for(int i = 0; i < pmNames.size(); ++i) {
+        String name = pmNames.getString(i);
+        pms.getJSONObject(name).setJSONArray("permutations", getNamePermutations(name));
+      }
+    }
 
     // Look through all lines until one designates the project manager
     String[] lines = desc.toLowerCase().split("\n");
@@ -182,8 +130,8 @@ class JSONLoader {
       }
     }
     return "Unknown";
-  }
-  
+  } // getProjectManager
+    
   // Calculate name permutations
   private JSONArray getNamePermutations(String name) {
     String[] words = name.toLowerCase().split(" "); 
@@ -207,7 +155,7 @@ class JSONLoader {
     String username = config.getString("apiKey");
     String url = config.getString("companyTeamworkURL");
     JSONArray projectIds = projects.getJSONArray("ids");
-    JSONArray milestoneIds = milestones.getJSONArray("ids");
+    JSONArray milestoneIds = everything.getJSONArray("ids");
     JSONArray milestoneWhitelist = config.getJSONArray("milestoneWhitelist");
     JSONArray milestoneBlacklist = config.getJSONArray("milestoneBlacklist");
 
@@ -233,68 +181,102 @@ class JSONLoader {
     JSONObject foundMilestones = parseJSONObject(get.getContent());
     JSONArray milestonesArray = foundMilestones.getJSONArray("milestones");
     for(int i = 0; i < milestonesArray.size(); ++i) {
-        JSONObject milestone = milestonesArray.getJSONObject(i);
-        if(checkLists(milestone.getString("name"), milestoneWhitelist, milestoneBlacklist)) {
-          String id = milestone.getInt("id") + "";
-          milestones.setJSONObject(id, milestone);
-          milestoneIds.append(id);
+      JSONObject milestone = milestonesArray.getJSONObject(i);
+      if(checkLists(milestone.getString("name"), milestoneWhitelist, milestoneBlacklist)) {
+        String id = milestone.getInt("id") + "";
+        everything.setJSONObject(id, milestone);
+        milestoneIds.append(id);
+      }
+    }
+  } // addPriorMilestones
+  
+  private void downloadAbsencesJSON() {
+    // Config
+    String username = config.getString("apiKey");
+    String url = config.getString("companyTeamworkURL");
+    
+    Calendar calendar = Calendar.getInstance();
+    String today = dateParser.format(calendar.getTime());
+    calendar.set(Calendar.YEAR, calendar.get(Calendar.YEAR) + 1);
+    String end = dateParser.format(calendar.getTime());
+    
+    // Initialize JSON object
+    JSONArray absences = new JSONArray();
+    everything.setJSONArray("absences", absences);
+    
+    int page = 0;
+    boolean hasMore = true;
+    while(hasMore) {
+      GetRequest get = new GetRequest(url + api + "calendar/events.json?startDate=" + today + "&endDate=" + end + "&page=" + ++page);
+      get.addUser(username, password);
+      get.send();
+    
+      JSONObject requestedEvents = parseJSONObject(get.getContent());
+      JSONArray downloadedEvents = requestedEvents.getJSONArray("calendarEvents");
+      
+      // Add found events to a JSON array if their type is a 'vacation'
+      for(int i = 0; i < downloadedEvents.size(); ++i) {
+        JSONObject event = downloadedEvents.getJSONObject(i);
+        //102003 for 'vacation'
+        if(!event.isNull("type") && event.getJSONObject("type").getInt("id") == 102003) {
+          absences.append(event);
         }
+      }
+      
+      hasMore = requestedEvents.getJSONObject("meta").getJSONObject("page").getBoolean("hasMore");
     }
   }
-    
+  
   private void createSortedJSON() {
     
-    sortMilestones();
+    JSONArray allMilestones = everything.getJSONArray("milestones");
+    JSONObject allProjects = everything.getJSONObject("projects");
     
     // Store project managers, projects, then milestones
-    projectManagerMilestones = new JSONObject();
-    JSONArray projectManagerNames = new JSONArray();
-    projectManagerMilestones.setJSONArray("projectManagers", projectManagerNames);
+    sorted = new JSONObject();
+    sorted.setJSONArray("projectManagers", new JSONArray());
 
     // For each milestone
-    JSONArray milestoneIds = milestones.getJSONArray("ids");
-    for(int i = 0; i < milestoneIds.size(); ++i) {
+    JSONArray milestones = everything.getJSONArray("milestones");
+    for(int i = 0; i < milestones.size(); ++i) {
       
-      String milestoneId = milestoneIds.getString(i);
-      JSONObject milestone = milestones.getJSONObject(milestoneIds.getString(i));
-      
-      // Get the project manager and project Id from the milestone
-      String pmName = milestone.getString("projectManager");
+      JSONObject milestone = allMilestones.getJSONObject(i);
       String projectId = milestone.getInt("projectId") + "";
+      JSONObject project = allProjects.getJSONObject(projectId);
+      String projectManager = project.getString("projectManager");
       
-      // Get the project manager from the name
-      JSONObject pm = projectManagerMilestones.getJSONObject(pmName);
-      if(pm == null) { // If this project manager hasn't been added yet, create the lists
+      JSONObject pm = sorted.getJSONObject(projectManager);
+      if(pm == null) {
         pm = new JSONObject();
-        projectManagerMilestones.setJSONObject(pmName, pm); 
-        projectManagerNames.append(pmName);
-      }
-
-      // Get the project manager's list of milestones for the current project
-      JSONArray pmProjectMilestones = pm.getJSONArray(projectId);
-      if(pmProjectMilestones == null) { // If the projects hasn't been added yet, create the lists
-        pmProjectMilestones = new JSONArray();
-        pm.setJSONArray(projectId, pmProjectMilestones);
+        pm.setInt("numProjects", 0);
+        pm.setInt("numMilestones", 0);
+        pm.setString("color", config.getJSONObject("projectManagers").getJSONObject(projectManager).getString("color"));
         
-        // Get the list of Ids for the project
-        JSONArray pmProjectIds = pm.getJSONArray("projectIds");
-        if(pmProjectIds == null) {
-          pmProjectIds = new JSONArray();
-          pm.setJSONArray("projectIds", pmProjectIds);
-        }
-     
-        // Only add the project Id if this is the first milestone for this project
-        pmProjectIds.append(projectId);
+        JSONObject pmProjects = new JSONObject();
+        pmProjects.setJSONArray("ids", new JSONArray());
+        pm.setJSONObject("projects", pmProjects);
+        
+        sorted.setJSONObject(projectManager, pm);
+        sorted.getJSONArray("projectManagers").append(projectManager);
       }
       
-      // Add the milestone to the project
-      pmProjectMilestones.append(milestoneId);
+      JSONObject pmProjects = pm.getJSONObject("projects");
+      JSONArray pmProject = pmProjects.getJSONArray(projectId);
+      if(pmProject == null) {
+        pmProject = new JSONArray();
+        pmProjects.getJSONArray("ids").append(projectId);
+        pmProjects.setJSONArray(projectId, pmProject);
+        pm.setInt("numProjects", pm.getInt("numProjects") + 1);
+      }
+      
+      pmProject.append(i);
+      pm.setInt("numMilestones", pm.getInt("numMilestones") + 1);
     }
     
     // Sort the project managers by their number of active projects
     sortPMs();
-  }
-  
+  } // createSortedJSON
+
   boolean stringContainsIgnoreCase(String target, JSONArray tests) {
     target = target.toLowerCase();
     for(int i = 0; i < tests.size(); ++i) {
@@ -309,46 +291,26 @@ class JSONLoader {
     return stringContainsIgnoreCase(target, whitelist) &&
           !stringContainsIgnoreCase(target, blacklist);
   }
-  
-  void sortMilestones() {
-    try {
-      JSONArray milestoneIDs = milestones.getJSONArray("ids");
-      for(int i = 0; i < milestoneIDs.size(); ++i) {
-        for(int j = i + 1; j < milestoneIDs.size(); ++j) {
-          
-          String milestoneIdA = milestoneIDs.getString(i);
-          JSONObject milestoneA = milestones.getJSONObject(milestoneIdA);
-          Date dateA = dateParser.parse(milestoneA.getString("deadline"));
-          
-          String milestoneIdB = milestoneIDs.getString(j);
-          JSONObject milestoneB = milestones.getJSONObject(milestoneIdB);
-          Date dateB = dateParser.parse(milestoneB.getString("deadline"));
-          
-          if(dateA.after(dateB)) {
-            milestoneIDs.setString(i, milestoneIdB);
-            milestoneIDs.setString(j, milestoneIdA);
-          }
-        }
-      }
-    } catch(Exception e) {
-      e.printStackTrace(); 
-    }
-  }
-  
+
   void sortPMs() {
-    JSONArray pms = projectManagerMilestones.getJSONArray("projectManagers");
+    JSONArray pms = sorted.getJSONArray("projectManagers");
     for(int i = 0; i < pms.size(); ++i) {
       for(int j = i + 1; j < pms.size(); ++j) {
         
-        String pmA = pms.getString(i);
-        JSONArray projectIdsA = projectManagerMilestones.getJSONObject(pmA).getJSONArray("projectIds");
+        String nameA = pms.getString(i);
+        String nameB = pms.getString(j);
+        JSONObject pmA = sorted.getJSONObject(nameA);
+        JSONObject pmB = sorted.getJSONObject(nameB);
         
-        String pmB = pms.getString(j);
-        JSONArray projectIdsB = projectManagerMilestones.getJSONObject(pmB).getJSONArray("projectIds");
+        int projectDiff = pmA.getInt("numProjects") - pmB.getInt("numProjects");
+        int milestoneDiff = pmA.getInt("numMilestones") - pmB.getInt("numMilestones");
         
-        if(projectIdsA.size() < projectIdsB.size()) {
-          pms.setString(i, pmB);
-          pms.setString(j, pmA);
+        // First sort by number of projects descending, then number of milestones descending, then name alphabetical
+        if(projectDiff < 0 ||
+          (projectDiff == 0 && (milestoneDiff < 0 ||
+                               (milestoneDiff == 0 && nameA.compareTo(nameB) < 0)))) {
+          pms.setString(i, nameB);
+          pms.setString(j, nameA);
         }
       }
     }

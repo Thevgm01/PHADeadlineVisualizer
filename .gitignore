@@ -12,3 +12,5 @@ PHADeadlineVisualizer/
 application.windows32/
 
 application.windows64/
+
+*.json

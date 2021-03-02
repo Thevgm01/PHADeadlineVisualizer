@@ -3,6 +3,8 @@ import java.util.Date;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
 
+String version = "1.1";
+
 JSONLoader jsons;
 
 float textSize = 15;
