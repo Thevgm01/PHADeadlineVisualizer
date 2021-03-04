@@ -7,46 +7,52 @@ class JSONLoader {
   public JSONArray getProjects(String pm) { return sorted.getJSONObject(pm).getJSONArray("projectIds"); }
   public JSONArray getMilestones(String pm, String projectId) { return sorted.getJSONObject(pm).getJSONArray(projectId); }
   public JSONObject getMilestone(String milestoneID) { return everything.getJSONObject(milestoneID); }
-  public String getProjectName(String projectId) { return projects.getJSONObject(projectId).getString("name"); }
+  public String getProjectName(String projectId) { return everything.getJSONObject("projects").getJSONObject(projectId).getString("name"); }
   public String getPMHex(String pm) { return sorted.getJSONObject(pm).getString("color"); }
 
   public int status = 0;
 
   private JSONObject config;
   private JSONObject everything;
-  private JSONObject milestones;
-  private JSONObject projects;
   
   private String configJSONFile = "config.json";
   
+  private String url = "";
+  private String username = "";
   private String password = "password";
   private String api = "/projects/api/v3/";
 
   private String[] pmWords = {"pm", "project manager"};
+  
+  private Date earliestMilestone, latestMilestone;
 
   public JSONLoader() {
     try {
-      config = loadJSONObject(configJSONFile);
+      loadConfig();
       downloadMilestonesJSON();
       downloadAbsencesJSON();
       //addPriorMilestones();
       createSortedJSON();
       status = 1;
-      
-      //saveJSONObject(everything, "everything.json");
-      //saveJSONObject(sorted, "sorted.json");
+            
+      saveJSONObject(everything, "everything.json");
+      saveJSONObject(sorted, "sorted.json");
     } catch(Exception e) {
       e.printStackTrace();
       status = -1; 
     }
   }
   
+  private void loadConfig() {
+    config = loadJSONObject(configJSONFile);
+    url = config.getString("companyTeamworkURL");
+    username = config.getString("apiKey");
+  }
+  
   // Get all upcoming milestones and their projects
   private void downloadMilestonesJSON() {
     
     // Config
-    String username = config.getString("apiKey");
-    String url = config.getString("companyTeamworkURL");
     JSONArray milestoneWhitelist = config.getJSONArray("milestoneWhitelist");
     JSONArray milestoneBlacklist = config.getJSONArray("milestoneBlacklist");
     
@@ -152,9 +158,7 @@ class JSONLoader {
   private void addPriorMilestones() {
     
     // Config
-    String username = config.getString("apiKey");
-    String url = config.getString("companyTeamworkURL");
-    JSONArray projectIds = projects.getJSONArray("ids");
+    JSONArray projectIds = everything.getJSONObject("projects").getJSONArray("ids");
     JSONArray milestoneIds = everything.getJSONArray("ids");
     JSONArray milestoneWhitelist = config.getJSONArray("milestoneWhitelist");
     JSONArray milestoneBlacklist = config.getJSONArray("milestoneBlacklist");
@@ -191,9 +195,6 @@ class JSONLoader {
   } // addPriorMilestones
   
   private void downloadAbsencesJSON() {
-    // Config
-    String username = config.getString("apiKey");
-    String url = config.getString("companyTeamworkURL");
     
     Calendar calendar = Calendar.getInstance();
     String today = dateParser.format(calendar.getTime());
@@ -245,7 +246,18 @@ class JSONLoader {
       JSONObject project = allProjects.getJSONObject(projectId);
       String projectManager = project.getString("projectManager");
       
+      if(i == 0 || i == milestones.size() - 1) {
+        try {
+          Date deadline = dateParser.parse(milestone.getString("deadline"));
+          if(i == 0) earliestMilestone = deadline; 
+          else       earliestMilestone = deadline; 
+        } catch(Exception e) {
+          e.printStackTrace(); 
+        }
+      }
+      
       JSONObject pm = sorted.getJSONObject(projectManager);
+      // Add the project manager, if they don't exist
       if(pm == null) {
         pm = new JSONObject();
         pm.setInt("numProjects", 0);
@@ -260,6 +272,7 @@ class JSONLoader {
         sorted.getJSONArray("projectManagers").append(projectManager);
       }
       
+      // Add the project, if it doesn't exist
       JSONObject pmProjects = pm.getJSONObject("projects");
       JSONArray pmProject = pmProjects.getJSONArray(projectId);
       if(pmProject == null) {
@@ -269,6 +282,7 @@ class JSONLoader {
         pm.setInt("numProjects", pm.getInt("numProjects") + 1);
       }
       
+      // Add the milestone
       pmProject.append(i);
       pm.setInt("numMilestones", pm.getInt("numMilestones") + 1);
     }
@@ -301,7 +315,7 @@ class JSONLoader {
         String nameB = pms.getString(j);
         JSONObject pmA = sorted.getJSONObject(nameA);
         JSONObject pmB = sorted.getJSONObject(nameB);
-        
+                
         int projectDiff = pmA.getInt("numProjects") - pmB.getInt("numProjects");
         int milestoneDiff = pmA.getInt("numMilestones") - pmB.getInt("numMilestones");
         
@@ -315,4 +329,5 @@ class JSONLoader {
       }
     }
   }
+  
 }
