@@ -29,8 +29,8 @@ class JSONLoader {
 
   public JSONLoader() {
     try {
-      earliestMilestone = Calendar.getInstance();
-      latestMilestone = Calendar.getInstance();
+      earliestMilestone = (Calendar)curCal.clone();
+      latestMilestone = (Calendar)curCal.clone();
       
       loadConfig();
       //downloadMilestonesJSON();
@@ -169,7 +169,7 @@ class JSONLoader {
     JSONArray milestoneBlacklist = config.getJSONArray("milestoneBlacklist");
 
     // Get the strings for yesterday and the beginning of the month
-    Calendar calendar = Calendar.getInstance();
+    Calendar calendar = (Calendar)curCal.clone();
     calendar.add(Calendar.DAY_OF_YEAR, -1);
     String today = dateParser.format(calendar.getTime());
     calendar.set(Calendar.DAY_OF_MONTH, 0);
@@ -201,7 +201,7 @@ class JSONLoader {
   
   private void downloadAbsencesJSON() {
     
-    Calendar calendar = Calendar.getInstance();
+    Calendar calendar = (Calendar)curCal.clone();
     String today = dateParser.format(calendar.getTime());
     calendar.set(Calendar.YEAR, calendar.get(Calendar.YEAR) + 1);
     String end = dateParser.format(calendar.getTime());

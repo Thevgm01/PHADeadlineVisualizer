@@ -19,7 +19,7 @@ float increase = 25;
 float maxHeight = 0;
 float maxWidth = 0;
 float longestProjectNameWidth = 0;
-float projectNameIndent = 20;
+float projectNameIndent = 30;
 
 String[] monthNames = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 String[] weekdays = {"S", "M", "T", "W", "T", "F", "S"};
@@ -60,17 +60,23 @@ void loadJSONS() {
 void draw() {
   background(255);
   
-  // If we're not done loading yet...
-  if(jsons == null || jsons.status <= 0) {
+  // If we're not done loading yet, display a loading icon
+  if(jsons == null || jsons.status == 0) {
     drawLoading();
+    return;
+  } else if(jsons.status < 0) { // If the json failed to load properly
+    translate(width/2, height/2);
+    textSize(50);
+    fill(0);
+    text("Error: is the\nAPI key set in\nconfig.json?", 0, 0);
     return;
   }
       
   if(!isSaving()) {
     if(mousePressed) {
       float mouseScale = 3f;
-      translateX = constrain(translateX - (mouseX - pmouseX) * mouseScale, 0, maxWidth - width);
-      translateY = constrain(translateY - (mouseY - pmouseY) * mouseScale, 0, maxHeight - height);
+      translateX = constrain(translateX - (mouseX - pmouseX) * mouseScale, -increase, maxWidth - width + increase);
+      translateY = constrain(translateY - (mouseY - pmouseY) * mouseScale, -increase, maxHeight - height + increase);
     }
   } else {
     translateX = 0;
@@ -98,12 +104,12 @@ void draw() {
   float startY = yOffset;
   maxWidth = 0;
   
+  // Display the title in the upper left
   textSize(textSize * 2.5f);
   textAlign(LEFT, CENTER);
   String mainTitle = "PHA Milestones " + curCal.get(Calendar.YEAR);
-  text(mainTitle, 0, textSize/2f);
+  text(mainTitle, 0, textSize * 1.25f);
   longestProjectNameWidth = textWidth(mainTitle);
-  
   textSize(textSize);
 
   // FOR EACH LAYER
@@ -165,16 +171,7 @@ void draw() {
         
         yOffset += increase;
         circleOffset = yOffset - increase * 0.4f;
-
-        if(layer == 1) { // Draw a horizontal line from the last milestone to the very front 
-          
-          float startX = projectNameWidth + projectNameIndent + 10;
-          
-          stroke(0);
-          strokeWeight(lineWidth);
-          line(startX, circleOffset, getXFromDeadline(jsons.getMilestone(numMilestones - 1)), circleOffset);
-        }
-        
+       
         float[] largestXPerMilestone = new float[numMilestones];
         int largestYOffsetIndex = 0;
         
@@ -207,6 +204,19 @@ void draw() {
               stroke(0);
               strokeWeight(lineWidth);
               line(endX, yOffset + milestoneYoffset, endX, startY);
+              
+              if(k == numMilestones - 1) {
+                if(layer == LAYER_LINES) { // Draw a horizontal line from the last milestone to the very front 
+                  float startX = projectNameWidth + projectNameIndent + 10;
+                  float projectLineHeight = circleOffset;
+                  stroke(255);
+                  strokeWeight(lineWidth * 4);
+                  line(startX, projectLineHeight, endX, projectLineHeight);
+                  stroke(0);
+                  strokeWeight(lineWidth);
+                  line(startX, projectLineHeight, endX, projectLineHeight);
+                }
+              }
               break;
             case 2: // Draw a white background behind the milestone title
               fill(255);
@@ -224,23 +234,10 @@ void draw() {
         yOffset += largestYOffsetIndex * increase + increase * 0.8f;
       } // PROJECTS
       yOffset += textSize * 0.6f;
-      /*if(i < pms.size() - 1) {
-        switch(type) {
-          case 2:
-            stroke(255);
-            strokeWeight(lineWidth * 6);
-            line(-maxWidth, yOffset, maxWidth * 2, yOffset);
-            break;
-          case 3:
-            stroke(0);
-            strokeWeight(lineWidth * 3);
-            line(-maxWidth, yOffset, maxWidth * 2, yOffset);
-            break;
-        }
-      }*/
+
       if(layer == 2) {
         rectMode(CORNER);
-        fill(unhex(pm.getString("color")), 20);
+        fill(unhex("ff" + pm.getString("color")), 20);
         noStroke();
         rect(0, startYPM, maxWidth, yOffset - startYPM);
         rectMode(CENTER);
@@ -261,24 +258,17 @@ void draw() {
 }
 
 void drawLoading() {
-  if(jsons == null || jsons.status == 0) {
-    translate(width/2, height/2);
-    textSize(50);
-    fill(0);
-    text("Loading...", 0, 0);
-    float w = textWidth("Loading...");
-    noFill();
-    stroke(0);
-    strokeWeight(10);
-    float startAngle = frameCount / 30f + (sin(frameCount / 35f) + 1) * TWO_PI;
-    arc(0, 0, w * 1.1f, w * 1.1f, startAngle, startAngle + cos(frameCount / 25f) * HALF_PI + HALF_PI);
-    return;
-  } else {
-    translate(width/2, height/2);
-    textSize(50);
-    fill(0);
-    text("Error: is the\nAPI key set in\nconfig.json?", 0, 0);
-  }
+  translate(width/2, height/2);
+  textSize(50);
+  fill(0);
+  text("Loading...", 0, 0);
+  float w = textWidth("Loading...");
+  noFill();
+  stroke(0);
+  strokeWeight(10);
+  float startAngle = frameCount / 30f + (sin(frameCount / 35f) + 1) * TWO_PI;
+  float arcLength = cos(frameCount / 25f) * HALF_PI + PI * 0.6f;
+  arc(0, 0, w * 1.1f, w * 1.1f, startAngle, startAngle + arcLength);
 }
 
 void drawTitle() {
@@ -340,6 +330,7 @@ void drawMonths(int layer) {
   if(layer == LAYER_BACKGROUND) {
     // Draw a background rectangle on the current day
     //blendMode(DIFFERENCE);
+    rectMode(CENTER);
     fill(255, 0, 0, 50);
     noStroke();
     rect(getXFromCalendar(curCal), 0, increase, backgroundHeight);
@@ -350,7 +341,7 @@ void drawMonths(int layer) {
 //----------------------------------------------------//
 
 float getXFromDeadline(JSONObject milestone) {
-  Calendar deadline = Calendar.getInstance();
+  Calendar deadline = (Calendar)curCal.clone();
   try {
     deadline.setTime(dateParser.parse(milestone.getString("deadline")));
     return getXFromCalendar(deadline);
