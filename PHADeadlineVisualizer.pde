@@ -32,6 +32,8 @@ int saving = -1;
 private boolean isSaving() { return saving < 0; }
 PImage outImage;
 
+float translateX = 0, translateY = 0;
+
 void setup() {
   size(1000, 500);
   //surface.setVisible(false);
@@ -64,11 +66,15 @@ void draw() {
     return;
   }
       
-  float translateX = 0, translateY = 0;
   if(!isSaving()) {
-    translateX = map(mouseX, 0, width, 0, constrain(maxWidth - width, 0, 999999) + increase);
-    translateY = map(mouseY, 0, height, 0, constrain(maxHeight - height, 0, 999999) + increase);
+    if(mousePressed) {
+      float mouseScale = 3f;
+      translateX = constrain(translateX - (mouseX - pmouseX) * mouseScale, 0, maxWidth - width);
+      translateY = constrain(translateY - (mouseY - pmouseY) * mouseScale, 0, maxHeight - height);
+    }
   } else {
+    translateX = 0;
+    translateY = 0;
     for(int i = 0; i < saving; ++i) {
       translateX += width;
       if(translateX >= maxWidth) {
@@ -82,7 +88,7 @@ void draw() {
     }
   }
   
-  translate(-translateX + increase, -translateY + increase);
+  translate(-translateX, -translateY);
         
   float circleOffset = 0;
   float circleSize = 15;
@@ -329,7 +335,7 @@ void drawMonths(int layer) {
   }
   
   if(xOffset > maxWidth)
-    maxWidth = xOffset + textSize * 0.6f;
+    maxWidth = xOffset;
 
   if(layer == LAYER_BACKGROUND) {
     // Draw a background rectangle on the current day
