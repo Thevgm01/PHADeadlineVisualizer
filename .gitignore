@@ -16,3 +16,5 @@ application.windows64/
 *.json
 
 *.txt
+
+*.xml

@@ -5,6 +5,13 @@ import java.text.SimpleDateFormat;
 
 String version = "1.1";
 
+// Type
+// 0. Calculation
+// 1. Project/milestone lines
+// 2. White background behind milestone names, project manager backgrounds
+// 3. All text, month backgrounds
+private final int LAYER_CALCULATION = 0, LAYER_LINES = 1, LAYER_BACKGROUND = 2, LAYER_TEXT = 3;
+
 JSONLoader jsons;
 
 float textSize = 15;
@@ -17,11 +24,12 @@ float projectNameIndent = 20;
 String[] monthNames = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 String[] weekdays = {"S", "M", "T", "W", "T", "F", "S"};
 SimpleDateFormat dateParser;
-Calendar curCal, creationCal, deadlineCal, earliestCal, latestCal;
+Calendar curCal;
 
 boolean mouseInput = true;
 
 int saving = -1;
+private boolean isSaving() { return saving < 0; }
 PImage outImage;
 
 void setup() {
@@ -38,13 +46,6 @@ void setup() {
   
   dateParser = new SimpleDateFormat("yyyy-MM-dd");
   curCal = Calendar.getInstance();
-  creationCal = Calendar.getInstance();
-  deadlineCal = Calendar.getInstance();
-  earliestCal = Calendar.getInstance();
-  latestCal = Calendar.getInstance();
-
-  earliestCal.set(Calendar.DAY_OF_MONTH, 0);
-  latestCal.set(Calendar.DAY_OF_MONTH, 0);
 
   thread("loadJSONS");
   //jsons = new JSONLoader();
@@ -54,38 +55,17 @@ void loadJSONS() {
   jsons = new JSONLoader();
 }
 
-// Type
-// 0. Calculation
-// 1. Project/milestone lines
-// 2. White background behind milestone names, project manager backgrounds
-// 3. All text, month backgrounds
-
 void draw() {
   background(255);
   
   // If we're not done loading yet...
-  if(jsons == null || jsons.status == 0) {
-    translate(width/2, height/2);
-    textSize(50);
-    fill(0);
-    text("Loading...", 0, 0);
-    float w = textWidth("Loading...");
-    noFill();
-    stroke(0);
-    strokeWeight(10);
-    float startAngle = frameCount / 30f + (sin(frameCount / 35f) + 1) * TWO_PI;
-    arc(0, 0, w * 1.1f, w * 1.1f, startAngle, startAngle + cos(frameCount / 25f) * HALF_PI + HALF_PI);
-    return;
-  } else if(jsons.status == -1) {
-    translate(width/2, height/2);
-    textSize(50);
-    fill(0);
-    text("Error: is the\nAPI key set in\nconfig.json?", 0, 0);
+  if(jsons == null || jsons.status <= 0) {
+    drawLoading();
     return;
   }
       
   float translateX = 0, translateY = 0;
-  if(saving < 0) {
+  if(!isSaving()) {
     translateX = map(mouseX, 0, width, 0, constrain(maxWidth - width, 0, 999999) + increase);
     translateY = map(mouseY, 0, height, 0, constrain(maxHeight - height, 0, 999999) + increase);
   } else {
@@ -120,83 +100,36 @@ void draw() {
   
   textSize(textSize);
 
-  // FOR EACH TYPE
-  for(int type = 0; type < 4; ++type) {
+  // FOR EACH LAYER
+  for(int layer = 0; layer < 4; ++layer) {
     yOffset = startY;
-    
-    if(type == 3) {
-      float borderHeight = (maxHeight + increase) * 2f;
-      textAlign(CENTER, CENTER);
-      noStroke();
-      
-      // Draw all the months of the year, as well as the days
-      float xOffset = longestProjectNameWidth + projectNameIndent + increase;
-      Calendar monthCal = (Calendar)earliestCal.clone();
-      int backgroundOffset = 0;
-      while(!monthCal.after(latestCal)) {
-        monthCal.add(Calendar.MONTH, 1);
         
-        int month = monthCal.get(Calendar.MONTH);
-        int numDays = monthCal.getActualMaximum(Calendar.DAY_OF_MONTH);
-        int startDay = monthCal.get(Calendar.DAY_OF_WEEK);
-
-        // Background
-        if(++backgroundOffset % 2 == 1) {
-          fill(0, 15);
-          rect(xOffset + (numDays - 1) * increase/2f, 0, numDays * increase, borderHeight);
-        }
-        
-        //String monthText = (month + 1) + " - " + monthNames[month];
-        String monthText = monthNames[month];
-        // Month name
-        fill(0);
-        text(monthText, xOffset + numDays * increase / 2f, 0); // Centered
-        //text(monthText, xOffset + textWidth(monthText) / 2f, 0); // Left aligned
-        
-        // Days
-        for(int day = 1; day <= numDays; ++day) {
-          text(weekdays[(day - 1 + startDay) % weekdays.length], xOffset, increase); 
-          text(day, xOffset, increase * 2f); 
-          xOffset += increase;
-        }
-      }
-      
-      if(xOffset > maxWidth)
-        maxWidth = xOffset + textSize * 0.6f;
-  
-      // Draw a background rectangle on the current day
-      //blendMode(DIFFERENCE);
-      fill(255, 0, 0, 50);
-      noStroke();
-      rect(getXFromDay(curCal), 0, increase, borderHeight);
-      //blendMode(BLEND);
-    }
-    
     // FOR EACH PROJECT MANAGER
     JSONArray pms = jsons.getPMs();
     for(int i = 0; i < pms.size(); ++i) {
 
       float startYPM = yOffset;
       
-      String pm = pms.getString(i); 
-      JSONArray projects = jsons.getProjects(pm);
+      String pmName = pms.getString(i); 
+      JSONObject pm = jsons.getPM(pmName);
+      JSONObject pmProjects = pm.getJSONObject("projects");
+      int totalProjects = pm.getInt("numProjects");
       
-      if(type == 0 || type == 3) {
-        String numProjects = projects.size() + " active project";
-        if(projects.size() > 1) numProjects += "s";
+      if(layer == 0 || layer == 3) {
         
-        int milestones = 0;
-        for(int j = 0; j < projects.size(); ++j)
-          milestones += jsons.getMilestones(pm, projects.getString(j)).size();
-        String numMilestones = milestones + " upcoming milestone";
-        if(milestones > 1) numMilestones += "s";
+        String numProjectsText = totalProjects + " active project";
+        if(totalProjects > 1) numProjectsText += "s";
         
-        String pmStr = pm + " - " + numProjects + ", " + numMilestones;
+        int totalMilestones = pm.getInt("numMilestones");
+        String numMilestonesText = totalMilestones + " upcoming milestone";
+        if(totalMilestones > 1) numMilestonesText += "s";
+        
+        String pmStr = pmName + " - " + numProjectsText + ", " + numMilestonesText;
                 
-        float pmWidth = textWidth(pmStr);
-        if(type == 0 && pmWidth > longestProjectNameWidth) {
+        float pmWidth = textWidth(pmStr) + increase;
+        if(layer == LAYER_CALCULATION && pmWidth > longestProjectNameWidth) {
           longestProjectNameWidth = pmWidth - projectNameIndent;
-        } else if(type == 3) {
+        } else if(layer == LAYER_TEXT) {
           textAlign(LEFT, CENTER);
           fill(0);
           text(pmStr, textSize * 0.6f, yOffset + increase/2f);
@@ -206,18 +139,19 @@ void draw() {
       yOffset += increase; 
       
       // FOR EACH PROJECT
-      for(int j = 0; j < projects.size(); ++j) {
+      for(int j = 0; j < totalProjects; ++j) {
         
-        String projectID = projects.getString(j);
-        JSONArray milestones = jsons.getMilestones(pm, projectID);
+        String projectID = pmProjects.getJSONArray("ids").getString(j);
+        JSONArray milestones = pmProjects.getJSONArray(projectID);
+        int numMilestones = milestones.size();
         
         String projectName = jsons.getProjectName(projectID);
         float projectNameWidth = textWidth(projectName);
                 
-        if(type == 0 && projectNameWidth > longestProjectNameWidth)
+        if(layer == LAYER_CALCULATION && projectNameWidth > longestProjectNameWidth)
           longestProjectNameWidth = projectNameWidth;
                 
-        if(type == 3) {
+        if(layer == LAYER_TEXT) {
           textAlign(LEFT, CENTER);
           text(projectName, projectNameIndent, yOffset + increase/2f);
           textAlign(CENTER, CENTER);
@@ -226,39 +160,29 @@ void draw() {
         yOffset += increase;
         circleOffset = yOffset - increase * 0.4f;
 
-        if(type == 1) { // Draw a horizontal line from the last milestone to the very front 
-          setDeadline(jsons.getMilestone(milestones.getString(milestones.size() - 1)));
+        if(layer == 1) { // Draw a horizontal line from the last milestone to the very front 
           
           float startX = projectNameWidth + projectNameIndent + 10;
           
           stroke(0);
           strokeWeight(lineWidth);
-          line(startX, circleOffset, getXFromDay(deadlineCal), circleOffset);
+          line(startX, circleOffset, getXFromDeadline(jsons.getMilestone(numMilestones - 1)), circleOffset);
         }
         
-        float[] largestXPerMilestone = new float[milestones.size()];
+        float[] largestXPerMilestone = new float[numMilestones];
         int largestYOffsetIndex = 0;
         
         // FOR EACH MILESTONE
-        for(int k = 0; k < milestones.size(); ++k) {
+        for(int k = 0; k < numMilestones; ++k) {
           
-          JSONObject milestone = jsons.getMilestone(milestones.getString(k));
-          setDeadline(milestone);
-          float endX = getXFromDay(deadlineCal);
+          JSONObject milestone = jsons.getMilestone(milestones.getInt(k));
+          float endX = getXFromDeadline(milestone);
           String title = milestone.getString("name");
           
           float w2 = textWidth(title)/2f;
-          if(type == 0) {
+          if(layer == 0) {
             if(endX + w2 > maxWidth)
               maxWidth = endX + w2 + textSize * 0.6f;
-            if(deadlineCal.before(earliestCal)) {
-              earliestCal = (Calendar)deadlineCal.clone();
-              earliestCal.set(Calendar.DAY_OF_MONTH, 0);
-            }
-            if(deadlineCal.after(latestCal)) {
-              latestCal = (Calendar)deadlineCal.clone();
-              latestCal.set(Calendar.DAY_OF_MONTH, 0);
-            }
           }
           
           int yOffsetIndex = 0;
@@ -269,7 +193,7 @@ void draw() {
             largestYOffsetIndex = yOffsetIndex;
           float milestoneYoffset = yOffsetIndex * increase;
           
-          switch(type) {
+          switch(layer) {
             case 1: // Draw a vertical line up from the milestone to the calendar date
               stroke(255);
               strokeWeight(lineWidth * 4);
@@ -290,9 +214,9 @@ void draw() {
               text(title, endX, yOffset + milestoneYoffset + increase * 0.4f);
               break;
           }
-        }
+        } // MILESTONES
         yOffset += largestYOffsetIndex * increase + increase * 0.8f;
-      }
+      } // PROJECTS
       yOffset += textSize * 0.6f;
       /*if(i < pms.size() - 1) {
         switch(type) {
@@ -308,15 +232,16 @@ void draw() {
             break;
         }
       }*/
-      if(type == 2) {
+      if(layer == 2) {
         rectMode(CORNER);
-        String hex = jsons.getPMHex(pm);
-        fill(unhex(hex), 20);
+        fill(unhex(pm.getString("color")), 20);
         noStroke();
         rect(0, startYPM, maxWidth, yOffset - startYPM);
         rectMode(CENTER);
       }
-    }
+    } // PROJECT MANAGERS
+    
+    drawMonths(layer);
   }
         
   maxHeight = yOffset;
@@ -329,20 +254,116 @@ void draw() {
   }
 }
 
-float getXFromDay(Calendar cal) {
-  return longestProjectNameWidth + projectNameIndent + (cal.get(Calendar.DAY_OF_YEAR) - earliestCal.get(Calendar.DAY_OF_YEAR)) * increase;
-}
-
-void setDeadline(JSONObject milestone) {
-  try {
-    String date = milestone.getString("deadline");
-    deadlineCal.setTime(dateParser.parse(date));
-  } catch(java.text.ParseException e) {
-    e.printStackTrace(); 
+void drawLoading() {
+  if(jsons == null || jsons.status == 0) {
+    translate(width/2, height/2);
+    textSize(50);
+    fill(0);
+    text("Loading...", 0, 0);
+    float w = textWidth("Loading...");
+    noFill();
+    stroke(0);
+    strokeWeight(10);
+    float startAngle = frameCount / 30f + (sin(frameCount / 35f) + 1) * TWO_PI;
+    arc(0, 0, w * 1.1f, w * 1.1f, startAngle, startAngle + cos(frameCount / 25f) * HALF_PI + HALF_PI);
+    return;
+  } else {
+    translate(width/2, height/2);
+    textSize(50);
+    fill(0);
+    text("Error: is the\nAPI key set in\nconfig.json?", 0, 0);
   }
 }
 
+void drawTitle() {
+  
+}
+
+// Draw all the months of the year, as well as the days
+void drawMonths(int layer) {
+
+  float backgroundHeight = (maxHeight + increase) * 2f;
+  textAlign(CENTER, CENTER);
+  noStroke();
+  
+  float xOffset = longestProjectNameWidth + projectNameIndent + increase;
+  Calendar monthCal = (Calendar)curCal.clone();
+  monthCal.set(Calendar.DAY_OF_MONTH, 1);
+  int backgroundToggle = 0;
+  
+  while(monthCal.before(jsons.getLatest())) {
+    
+    int month = monthCal.get(Calendar.MONTH);
+    int numDays = monthCal.getActualMaximum(Calendar.DAY_OF_MONTH);
+    int startDay = monthCal.get(Calendar.DAY_OF_WEEK);
+
+    switch(layer) {
+      case LAYER_CALCULATION:
+        xOffset += numDays * increase;
+        break;
+      case LAYER_BACKGROUND:
+        if(++backgroundToggle % 2 == 1) {
+          rectMode(CORNER);
+          fill(0, 15);
+          rect(xOffset - increase/2f, -increase, numDays * increase, backgroundHeight);
+        }
+        xOffset += numDays * increase;
+        break;
+      case LAYER_TEXT:
+        String monthText = monthNames[month];
+        //monthText = (month + 1) + monthText;
+        fill(0);
+        text(monthText, xOffset + numDays * increase / 2f, 0); // Centered
+        //text(monthText, xOffset + textWidth(monthText) / 2f, 0); // Left aligned
+        
+        // Days
+        for(int day = 1; day <= numDays; ++day) {
+          text(weekdays[(day - 1 + startDay) % weekdays.length], xOffset, increase); 
+          text(day, xOffset, increase * 2f); 
+          xOffset += increase;
+        }
+        break;
+    }
+    
+    monthCal.add(Calendar.MONTH, 1);
+  }
+  
+  if(xOffset > maxWidth)
+    maxWidth = xOffset + textSize * 0.6f;
+
+  if(layer == LAYER_BACKGROUND) {
+    // Draw a background rectangle on the current day
+    //blendMode(DIFFERENCE);
+    fill(255, 0, 0, 50);
+    noStroke();
+    rect(getXFromCalendar(curCal), 0, increase, backgroundHeight);
+    //blendMode(BLEND);
+  }
+}
+
+//----------------------------------------------------//
+
+float getXFromDeadline(JSONObject milestone) {
+  Calendar deadline = Calendar.getInstance();
+  try {
+    deadline.setTime(dateParser.parse(milestone.getString("deadline")));
+    return getXFromCalendar(deadline);
+  } catch(Exception e) {
+    e.printStackTrace(); 
+  }
+  return -1;
+}
+
+float getXFromCalendar(Calendar cal) {
+  Calendar earliest = (Calendar)jsons.getEarliest().clone();
+  earliest.set(Calendar.DAY_OF_MONTH, 1);
+  return projectNameIndent + longestProjectNameWidth + increase + 
+        (cal.get(Calendar.DAY_OF_YEAR) - earliest.get(Calendar.DAY_OF_YEAR)) * increase;
+}
+
 void keyPressed() {
+  if(saving >= 0) return;
+  
   if(key == 'q') --textSize;
   else if(key == 'a') ++textSize;
   else if(key == 'w') --increase;
@@ -351,7 +372,7 @@ void keyPressed() {
 }
 
 void saveOut() {
-  if(saving >= 0) {
+  if(!isSaving()) {
     saving = -1; 
   
     SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH-mm-ss");

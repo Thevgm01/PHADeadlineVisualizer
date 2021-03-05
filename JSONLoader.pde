@@ -3,12 +3,13 @@
 class JSONLoader {
   
   private JSONObject sorted;
+  
   public JSONArray getPMs() { return sorted.getJSONArray("projectManagers"); }
-  public JSONArray getProjects(String pm) { return sorted.getJSONObject(pm).getJSONArray("projectIds"); }
-  public JSONArray getMilestones(String pm, String projectId) { return sorted.getJSONObject(pm).getJSONArray(projectId); }
-  public JSONObject getMilestone(String milestoneID) { return everything.getJSONObject(milestoneID); }
+  public JSONObject getPM(String pm) { return sorted.getJSONObject(pm); }
+  public JSONObject getMilestone(int index) { return everything.getJSONArray("milestones").getJSONObject(index); }
   public String getProjectName(String projectId) { return everything.getJSONObject("projects").getJSONObject(projectId).getString("name"); }
-  public String getPMHex(String pm) { return sorted.getJSONObject(pm).getString("color"); }
+  public Calendar getEarliest() { return earliestMilestone; }
+  public Calendar getLatest() { return latestMilestone; }
 
   public int status = 0;
 
@@ -24,14 +25,18 @@ class JSONLoader {
 
   private String[] pmWords = {"pm", "project manager"};
   
-  private Date earliestMilestone, latestMilestone;
+  private Calendar earliestMilestone, latestMilestone;
 
   public JSONLoader() {
     try {
+      earliestMilestone = Calendar.getInstance();
+      latestMilestone = Calendar.getInstance();
+      
       loadConfig();
-      downloadMilestonesJSON();
-      downloadAbsencesJSON();
+      //downloadMilestonesJSON();
+      //downloadAbsencesJSON();
       //addPriorMilestones();
+      everything = loadJSONObject("everything.json");
       createSortedJSON();
       status = 1;
             
@@ -249,8 +254,8 @@ class JSONLoader {
       if(i == 0 || i == milestones.size() - 1) {
         try {
           Date deadline = dateParser.parse(milestone.getString("deadline"));
-          if(i == 0) earliestMilestone = deadline; 
-          else       earliestMilestone = deadline; 
+          if(i == 0) earliestMilestone.setTime(deadline); 
+          else       latestMilestone.setTime(deadline); 
         } catch(Exception e) {
           e.printStackTrace(); 
         }
