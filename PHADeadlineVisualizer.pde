@@ -3,7 +3,10 @@ import java.util.Date;
 import java.util.Calendar;
 import java.text.SimpleDateFormat;
 
-String version = "1.1";
+String programName = "PHA Deadline Visualizer Tool";
+String displayName = "PHA Deadlines";
+String authorName = "Steven Dunn";
+String version = "2.0";
 
 // Type
 // 0. Calculation
@@ -37,7 +40,7 @@ int translateX = 0, translateY = 0;
 
 void setup() {
   size(1000, 500);
-  //surface.setVisible(false);
+  processArgs(args);
 
   background(255);
   fill(0);
@@ -52,8 +55,19 @@ void setup() {
 
   thread("loadJSONS");
   //jsons = new JSONLoader();
+}
+
+void processArgs(String[] args) {
+  if(args == null) return;
   
-  //autoSave = args == null;
+  for(int i = 0; i < args.length; ++i) {
+    if(args[i].equals("hidden")) {
+      surface.setVisible(false);
+      autoSave = true;
+    } else if(args[i].equals("auto")) {
+      autoSave = true;
+    }
+  }
 }
 
 void loadJSONS() {
@@ -100,7 +114,7 @@ void draw() {
   // Display the title in the upper left
   textSize(textSize * 2.5f);
   textAlign(LEFT, CENTER);
-  String mainTitle = "PHA Milestones " + curCal.get(Calendar.YEAR);
+  String mainTitle = displayName + " " + curCal.get(Calendar.YEAR);
   text(mainTitle, 0, textSize * 1.25f);
   longestProjectNameWidth = textWidth(mainTitle);
   textSize(textSize);
@@ -176,7 +190,7 @@ void draw() {
           String title = milestone.getString("name");
           
           float w2 = textWidth(title)/2f;
-          if(layer == 0) {
+          if(layer == LAYER_CALCULATION) {
             if(endX + w2 > maxWidth)
               maxWidth = endX + w2 + textSize * 0.6f;
           }
@@ -190,7 +204,7 @@ void draw() {
           float milestoneYoffset = yOffsetIndex * increase;
           
           switch(layer) {
-            case 1: // Draw a vertical line up from the milestone to the calendar date
+            case LAYER_LINES: // Draw a vertical line up from the milestone to the calendar date
               stroke(255);
               strokeWeight(lineWidth * 4);
               line(endX, yOffset + milestoneYoffset, endX, startY);
@@ -211,13 +225,13 @@ void draw() {
                 }
               }
               break;
-            case 2: // Draw a white background behind the milestone title
+            case LAYER_BACKGROUND: // Draw a white background behind the milestone title
               rectMode(CENTER);
               fill(255);
               noStroke();
               rect(endX, yOffset + milestoneYoffset + increase * 0.5f, w2*2f, textSize + 5f);
               break;
-            case 3: // Draw the milestone title and circle
+            case LAYER_TEXT: // Draw the milestone title and circle
               fill(0);
               noStroke();
               circle(endX, circleOffset, circleSize);
@@ -229,7 +243,7 @@ void draw() {
       } // PROJECTS
       yOffset += textSize * 0.6f;
 
-      if(layer == 2) {
+      if(layer == LAYER_BACKGROUND) {
         rectMode(CORNER);
         fill(jsons.getColor(pmName));
         noStroke();
@@ -241,10 +255,14 @@ void draw() {
     drawMonths(layer);
     drawAbsences(layer);
   }
-        
+  
+  textAlign(RIGHT, CENTER);
+  String bottomText = programName + " v" + version + ", created by " + authorName + ". Made with Processing";
+  text(bottomText, maxWidth, maxHeight + increase * 0.4f);
+  
   maxHeight = yOffset;
     
-  if(autoSave) saveOut();
+  if(autoSave && !saving) saveOut();
   else if(saving) outImage.set((int)translateX, (int)translateY, get());
 }
 
@@ -380,7 +398,7 @@ void saveOut() {
     saving = false;
   
     SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-    String outFilename = "PHA Milestones " + formatter.format(curCal.getTime()) + ".png";
+    String outFilename = displayName + " " + formatter.format(curCal.getTime()) + ".png";
     outFilename = outFilename.replace(" ", "_");
     outImage.save(outFilename);
     System.out.println(outFilename);
