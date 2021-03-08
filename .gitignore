@@ -18,3 +18,5 @@ application.windows64/
 *.txt
 
 *.xml
+
+*.exe
