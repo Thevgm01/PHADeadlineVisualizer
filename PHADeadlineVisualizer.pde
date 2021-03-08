@@ -257,7 +257,7 @@ void draw() {
   }
   
   textAlign(RIGHT, CENTER);
-  String bottomText = programName + " v" + version + ", created by " + authorName + ". Made with Processing";
+  String bottomText = programName + " v" + version + ", created by " + authorName + ". Made with Processing.";
   text(bottomText, maxWidth, maxHeight + increase * 0.4f);
   
   maxHeight = yOffset;
