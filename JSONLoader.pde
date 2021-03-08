@@ -39,15 +39,16 @@ class JSONLoader {
       latestMilestone = (Calendar)curCal.clone();
       
       loadConfig();
-      //downloadMilestonesJSON();
-      //downloadAbsencesJSON();
+      downloadMilestonesJSON();
+      downloadAbsencesJSON();
       //addPriorMilestones();
-      everything = loadJSONObject("everything.json");
+      //everything = loadJSONObject("everything.json");
+      
       createSortedJSON();
       status = 1;
             
-      saveJSONObject(everything, "everything.json");
-      saveJSONObject(sorted, "sorted.json");
+      //saveJSONObject(everything, "everything.json");
+      //saveJSONObject(sorted, "sorted.json");
     } catch(Exception e) {
       e.printStackTrace();
       status = -1; 
@@ -114,16 +115,20 @@ class JSONLoader {
   private String getProjectManager(JSONObject project) {
     
     // Config
-    JSONObject pms = config.getJSONObject("projectManagers");
-    JSONArray pmNames = pms.getJSONArray("names");
+    JSONArray pms = config.getJSONArray("projectManagers");
     String desc = project.getString("description");
     
     // Set the name permutations for the config
-    if(pms.getJSONObject(pmNames.getString(0)).isNull("permutations")) {
-      for(int i = 0; i < pmNames.size(); ++i) {
-        String name = pmNames.getString(i);
-        pms.getJSONObject(name).setJSONArray("permutations", getNamePermutations(name));
-      }
+    JSONObject permutations = config.getJSONObject("permutations");
+    if(permutations == null) {
+      permutations = new JSONObject();
+      config.setJSONObject("permutations", permutations);
+    }
+    
+    for(int i = 0; i < pms.size(); ++i) {
+      String name = pms.getString(i);
+      if(permutations.isNull(name))
+        permutations.setJSONArray(name, getNamePermutations(name));
     }
 
     // Look through all lines until one designates the project manager
@@ -138,9 +143,9 @@ class JSONLoader {
         pm = pm.trim();
         
         // See if the remaining text matches any of the existing project manager name permutations
-        for(int j = 0; j < pmNames.size(); ++j) {
-          String name = pmNames.getString(j);
-          if(stringContainsIgnoreCase(pm, pms.getJSONObject(name).getJSONArray("permutations"))) {
+        for(int j = 0; j < pms.size(); ++j) {
+          String name = pms.getString(j);
+          if(stringContainsIgnoreCase(pm, permutations.getJSONArray(name))) {
             return name;
           }
         }

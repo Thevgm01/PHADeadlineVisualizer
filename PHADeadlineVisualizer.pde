@@ -71,7 +71,7 @@ void draw() {
     translate(width/2, height/2);
     textSize(50);
     fill(0);
-    text("Error: is the\nAPI key set in\nconfig.json?", 0, 0);
+    text("Error: could\nnot load\nconfig.json", 0, 0);
     return;
   }
       
@@ -81,10 +81,10 @@ void draw() {
     translateY = (int)constrain(translateY - (mouseY - pmouseY) * mouseScale, 0, maxHeight - height + increase * 2);
   } else if(saving) {
     int count = frameCount - saveFrame;
-    int maxX = ceil(maxWidth / width);
+    int maxX = ceil((maxWidth + increase * 2) / width);
     translateX = count % maxX * width;
     translateY = count / maxX * height;
-    if(translateY >= maxHeight) saveOut();  
+    if(translateY > maxHeight + increase * 2) saveOut();  
   }
   
   translate(-translateX + increase, -translateY + increase);
@@ -120,7 +120,7 @@ void draw() {
       JSONObject pmProjects = pm.getJSONObject("projects");
       int totalProjects = pm.getInt("numProjects");
       
-      if(layer == 0 || layer == 3) {
+      if(layer == LAYER_CALCULATION || layer == LAYER_TEXT) {
         
         String numProjectsText = totalProjects + " active project";
         if(totalProjects > 1) numProjectsText += "s";
@@ -243,12 +243,9 @@ void draw() {
   }
         
   maxHeight = yOffset;
-  
     
   if(autoSave) saveOut();
-  else if(saving) {
-    outImage.set((int)translateX, (int)translateY, get());
-  }
+  else if(saving) outImage.set((int)translateX, (int)translateY, get());
 }
 
 void drawLoading() {
@@ -263,10 +260,6 @@ void drawLoading() {
   float startAngle = frameCount / 30f + (sin(frameCount / 35f) + 1) * TWO_PI;
   float arcLength = cos(frameCount / 25f) * HALF_PI + PI * 0.6f;
   arc(0, 0, w * 1.1f, w * 1.1f, startAngle, startAngle + arcLength);
-}
-
-void drawTitle() {
-  
 }
 
 // Draw all the months of the year, as well as the days
@@ -390,6 +383,7 @@ void saveOut() {
     String outFilename = "PHA Milestones " + formatter.format(curCal.getTime()) + ".png";
     outFilename = outFilename.replace(" ", "_");
     outImage.save(outFilename);
+    System.out.println(outFilename);
     if(autoSave) exit();
   } else {
     saving = true;
