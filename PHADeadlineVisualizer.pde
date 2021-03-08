@@ -28,11 +28,12 @@ Calendar curCal;
 
 boolean mouseInput = true;
 
-int saving = -1;
-private boolean isSaving() { return saving < 0; }
+int saveFrame = -1;
+boolean saving = false;
+boolean autoSave = false;
 PImage outImage;
 
-float translateX = 0, translateY = 0;
+int translateX = 0, translateY = 0;
 
 void setup() {
   size(1000, 500);
@@ -51,6 +52,8 @@ void setup() {
 
   thread("loadJSONS");
   //jsons = new JSONLoader();
+  
+  //autoSave = args == null;
 }
 
 void loadJSONS() {
@@ -72,29 +75,19 @@ void draw() {
     return;
   }
       
-  if(!isSaving()) {
-    if(mousePressed) {
-      float mouseScale = 3f;
-      translateX = constrain(translateX - (mouseX - pmouseX) * mouseScale, -increase, maxWidth - width + increase);
-      translateY = constrain(translateY - (mouseY - pmouseY) * mouseScale, -increase, maxHeight - height + increase);
-    }
-  } else {
-    translateX = 0;
-    translateY = 0;
-    for(int i = 0; i < saving; ++i) {
-      translateX += width;
-      if(translateX >= maxWidth) {
-        translateX = 0;
-        translateY += height;
-        if(translateY >= maxHeight + increase) {
-          saveOut();
-          break; 
-        }
-      }
-    }
+  if(!saving && mousePressed) {
+    float mouseScale = 3f;
+    translateX = (int)constrain(translateX - (mouseX - pmouseX) * mouseScale, 0, maxWidth - width + increase * 2);
+    translateY = (int)constrain(translateY - (mouseY - pmouseY) * mouseScale, 0, maxHeight - height + increase * 2);
+  } else if(saving) {
+    int count = frameCount - saveFrame;
+    int maxX = ceil(maxWidth / width);
+    translateX = count % maxX * width;
+    translateY = count / maxX * height;
+    if(translateY >= maxHeight) saveOut();  
   }
   
-  translate(-translateX, -translateY);
+  translate(-translateX + increase, -translateY + increase);
         
   float circleOffset = 0;
   float circleSize = 15;
@@ -179,7 +172,7 @@ void draw() {
         for(int k = 0; k < numMilestones; ++k) {
           
           JSONObject milestone = jsons.getMilestone(milestones.getInt(k));
-          float endX = getXFromDeadline(milestone);
+          float endX = getXFromTime(milestone.getString("deadline"));
           String title = milestone.getString("name");
           
           float w2 = textWidth(title)/2f;
@@ -219,6 +212,7 @@ void draw() {
               }
               break;
             case 2: // Draw a white background behind the milestone title
+              rectMode(CENTER);
               fill(255);
               noStroke();
               rect(endX, yOffset + milestoneYoffset + increase * 0.5f, w2*2f, textSize + 5f);
@@ -237,7 +231,7 @@ void draw() {
 
       if(layer == 2) {
         rectMode(CORNER);
-        fill(unhex("ff" + pm.getString("color")), 20);
+        fill(jsons.getColor(pmName));
         noStroke();
         rect(0, startYPM, maxWidth, yOffset - startYPM);
         rectMode(CENTER);
@@ -245,15 +239,15 @@ void draw() {
     } // PROJECT MANAGERS
     
     drawMonths(layer);
+    drawAbsences(layer);
   }
         
   maxHeight = yOffset;
   
     
-  if(args == null && saving < 0) saveOut();
-  else if(saving >= 0) {
+  if(autoSave) saveOut();
+  else if(saving) {
     outImage.set((int)translateX, (int)translateY, get());
-    ++saving;
   }
 }
 
@@ -298,11 +292,14 @@ void drawMonths(int layer) {
         xOffset += numDays * increase;
         break;
       case LAYER_BACKGROUND:
-        if(++backgroundToggle % 2 == 1) {
-          rectMode(CORNER);
-          fill(0, 15);
-          rect(xOffset - increase/2f, -increase, numDays * increase, backgroundHeight);
-        }
+        rectMode(CORNER);
+        
+        if(++backgroundToggle % 2 == 1) 
+          fill(jsons.getColor("monthA"));
+        else 
+          fill(jsons.getColor("monthB"));
+        
+        rect(xOffset - increase/2f, -increase, numDays * increase, backgroundHeight);
         xOffset += numDays * increase;
         break;
       case LAYER_TEXT:
@@ -314,7 +311,7 @@ void drawMonths(int layer) {
         
         // Days
         for(int day = 1; day <= numDays; ++day) {
-          text(weekdays[(day - 1 + startDay) % weekdays.length], xOffset, increase); 
+          text(weekdays[(day - 2 + startDay) % weekdays.length], xOffset, increase); 
           text(day, xOffset, increase * 2f); 
           xOffset += increase;
         }
@@ -327,24 +324,41 @@ void drawMonths(int layer) {
   if(xOffset > maxWidth)
     maxWidth = xOffset;
 
+  // Draw a background rectangle on the current day
   if(layer == LAYER_BACKGROUND) {
-    // Draw a background rectangle on the current day
     //blendMode(DIFFERENCE);
     rectMode(CENTER);
-    fill(255, 0, 0, 50);
+    fill(jsons.getColor("currentDay"), 0, 0, 50);
     noStroke();
     rect(getXFromCalendar(curCal), 0, increase, backgroundHeight);
     //blendMode(BLEND);
   }
 }
 
+void drawAbsences(int layer) {
+  if(layer == LAYER_BACKGROUND) {
+    pushMatrix();
+    translate(-increase/2f, 0);
+    JSONArray absences = jsons.getAbsences();
+    rectMode(CORNERS);
+    fill(jsons.getColor("absence"));
+    noStroke();
+    for(int i = 0; i < absences.size(); ++i) {
+      JSONObject absence = absences.getJSONObject(i);
+      rect(getXFromTime(absence.getString("startDate")), -increase,
+           getXFromTime(absence.getString("endDate")), maxHeight + increase);
+    }
+    popMatrix();
+  } 
+}
+
 //----------------------------------------------------//
 
-float getXFromDeadline(JSONObject milestone) {
-  Calendar deadline = (Calendar)curCal.clone();
+float getXFromTime(String deadline) {
+  Calendar cal = (Calendar)curCal.clone();
   try {
-    deadline.setTime(dateParser.parse(milestone.getString("deadline")));
-    return getXFromCalendar(deadline);
+    cal.setTime(dateParser.parse(deadline));
+    return getXFromCalendar(cal);
   } catch(Exception e) {
     e.printStackTrace(); 
   }
@@ -359,26 +373,27 @@ float getXFromCalendar(Calendar cal) {
 }
 
 void keyPressed() {
-  if(saving >= 0) return;
+  if(saving) return;
   
   if(key == 'q') --textSize;
   else if(key == 'a') ++textSize;
   else if(key == 'w') --increase;
   else if(key == 's') ++increase;
-  else if(key == ' ' && saving < 0) saveOut();
+  else if(key == ' ') saveOut();
 }
 
 void saveOut() {
-  if(!isSaving()) {
-    saving = -1; 
+  if(saving) {
+    saving = false;
   
-    SimpleDateFormat formatter = new SimpleDateFormat("dd-MM-yyyy HH-mm-ss");
-    String outFilename = "PHA Milestones " + formatter.format(new Date()) + ".png";
+    SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
+    String outFilename = "PHA Milestones " + formatter.format(curCal.getTime()) + ".png";
     outFilename = outFilename.replace(" ", "_");
     outImage.save(outFilename);
-    if(args == null) exit();
+    if(autoSave) exit();
   } else {
-    saving = 0;
+    saving = true;
+    saveFrame = frameCount + 1; // Start saving next frame
     outImage = createImage((int)(maxWidth + increase * 2), (int)(maxHeight + increase * 2), RGB);
   }
 }

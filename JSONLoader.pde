@@ -8,8 +8,14 @@ class JSONLoader {
   public JSONObject getPM(String pm) { return sorted.getJSONObject(pm); }
   public JSONObject getMilestone(int index) { return everything.getJSONArray("milestones").getJSONObject(index); }
   public String getProjectName(String projectId) { return everything.getJSONObject("projects").getJSONObject(projectId).getString("name"); }
+  public JSONArray getAbsences() { return everything.getJSONArray("absences"); }
   public Calendar getEarliest() { return earliestMilestone; }
   public Calendar getLatest() { return latestMilestone; }
+  public color getColor(String key) { 
+    JSONObject colors = sorted.getJSONObject("colors");
+    if(colors.isNull(key)) return color(255, 0, 255, 255);
+    return unhex(colors.getString(key));
+  }
 
   public int status = 0;
 
@@ -241,6 +247,7 @@ class JSONLoader {
     // Store project managers, projects, then milestones
     sorted = new JSONObject();
     sorted.setJSONArray("projectManagers", new JSONArray());
+    sorted.setJSONObject("colors", config.getJSONObject("colors"));
 
     // For each milestone
     JSONArray milestones = everything.getJSONArray("milestones");
@@ -267,7 +274,6 @@ class JSONLoader {
         pm = new JSONObject();
         pm.setInt("numProjects", 0);
         pm.setInt("numMilestones", 0);
-        pm.setString("color", config.getJSONObject("projectManagers").getJSONObject(projectManager).getString("color"));
         
         JSONObject pmProjects = new JSONObject();
         pmProjects.setJSONArray("ids", new JSONArray());
