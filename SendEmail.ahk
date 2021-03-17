@@ -5,7 +5,7 @@ SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
 #SingleInstance Force
 
 
-
+outlook := ComObjCreate("Outlook.Application")
 RunWait, %ComSpec% /c PhaDeadlineVisualizer.exe hidden >>temp.txt
 while image = ""
 {
@@ -16,17 +16,20 @@ FileDelete, temp.txt
 
 
 
-m := ComObjCreate("Outlook.Application").CreateItem(0)
+mail := outlook.CreateItem(0)
 Loop, read, emails.txt
 {
-    m.Recipients.Add(Trim(A_LoopReadLine))
+    if !(SubStr(A_LoopReadLine, 1, 1) = "#")
+    {
+        mail.Recipients.Add(Trim(A_LoopReadLine))
+    }
 }
-m.Attachments.Add(A_WorkingDir "\" image)
-m.Subject := "Daily Deadline Check"
-m.Body := "Here is your automated daily deadline check."
+mail.Attachments.Add(A_WorkingDir "\" image)
+mail.Subject := "Daily Deadline Check"
+mail.Body := "Here is your automated daily deadline check."
 
-;m.Display ; Comment out to not show the window before sending
-m.Send
+;mail.Display ; Comment out to not show the window before sending
+mail.Send
 
 
 
