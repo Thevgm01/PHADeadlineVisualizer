@@ -379,8 +379,11 @@ float getXFromTime(String deadline) {
 float getXFromCalendar(Calendar cal) {
   Calendar earliest = (Calendar)jsons.getEarliest().clone();
   earliest.set(Calendar.DAY_OF_MONTH, 1);
-  return projectNameIndent + longestProjectNameWidth + increase + 
-        (cal.get(Calendar.DAY_OF_YEAR) - earliest.get(Calendar.DAY_OF_YEAR)) * increase;
+  int dayDiff  = cal.get(Calendar.DAY_OF_YEAR) - earliest.get(Calendar.DAY_OF_YEAR);
+  int yearDiff = cal.get(Calendar.YEAR) - earliest.get(Calendar.YEAR);
+  float result = projectNameIndent + longestProjectNameWidth + increase + 
+        (dayDiff + yearDiff * cal.getActualMaximum(Calendar.DAY_OF_YEAR)) * increase;
+  return result;
 }
 
 void keyPressed() {
